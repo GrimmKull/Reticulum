@@ -1,4 +1,6 @@
 var Media = function (audio, video) {
+	this.to = null;
+	this.uri = null;
 	this.localVideo = null;
 	this.remoteVideo = null;
 	this.localStream = null;
@@ -42,12 +44,36 @@ var Media = function (audio, video) {
     this.handleAnswer = null
 
 	this.gotIceCandidate = function(event) {
-		console.log("got ice c");
+		if (event.candidate === null) {
+			console.log("handle answer or call")
+			if (self.to === null) {
+				self.handleAnswer();
+			} else {
+				self.handleOffer(self.to, self.uri);
+				self.to = null;
+				self.uri = null;
+			}
+		}
+		//console.log("got ice c", event.candidate);
     };
 
     this.gotRemoteStream = function(event) {
-		console.log("got remote stram");
+		console.log("got remote stream");
+		self.remoteStream = event.stream;
 		self.remoteVideo.src = window.URL.createObjectURL(event.stream);
+
+		self.remoteStream.onended = function() {
+			self.remoteVideo.src = "";
+			console.log("REMOTE ended");
+
+			self.start();
+		};
+	};
+
+	this.onRemoveStream = function(event) {
+		console.log("lost stream");
+
+		self.start();
 	};
 };
 
@@ -100,6 +126,7 @@ Media.prototype.start = function() {
 	this.peerConnection.onicecandidate = this.gotIceCandidate;
 	this.peerConnection.addStream(this.localStream);
 	this.peerConnection.onaddstream = this.gotRemoteStream;
+	this.peerConnection.onremovestream = this.onRemoveStream;
 
 	/*if (isCaller) {
 
@@ -114,6 +141,9 @@ Media.prototype.start = function() {
 };
 
 Media.prototype.makeOffer = function (to, uri) {
+	// NOTE: check if offer already made and restart media if true
+	if (EXISTS(this.localSDP) || this.localSDP !== "") this.start();
+
 	console.log("make offer");
     var self = this;
     this.peerConnection.createOffer(/*this.gotDescription*/
@@ -131,8 +161,9 @@ Media.prototype.makeOffer = function (to, uri) {
 				self.localSDP = description.sdp;
 			});
             console.log("MAKE OFFER", to, uri);
-            self.handleOffer(to, uri);
-            //this.ua.sendInvite(to, uri);
+            //self.handleOffer(to, uri);
+			self.to = to;
+			self.uri = uri;
         },
         // Error
         function(e) {
@@ -160,8 +191,7 @@ Media.prototype.makeAnswer = function () {
 				self.localSDP = description.sdp;
 			});
             //console.log("MAKE ANSWER", self.localSDP);
-            self.handleAnswer();
-            //this.ua.sendInvite(to, uri);
+            //self.handleAnswer();
         },
         // Error
         function(e) {
@@ -179,4 +209,21 @@ Media.prototype.setRemoteSDP = function (sdp) {
 
 Media.prototype.log = function(e) {
 	alert('getUserMedia() error: ' + e.name);
+};
+
+Media.prototype.startAudio = function() {
+	// TODO: start stream
+	console.log("START AUDIO");
+};
+
+Media.prototype.stopAudio = function() {
+	console.log("STOP AUDIO");
+	// TODO: remove local stream
+	//this.peerConnection.removeStream(this.localStream);
+	//this.localStream.stop();
+	//this.localStream = null;
+
+	this.peerConnection.close();
+
+	this.start();
 };

@@ -4,6 +4,7 @@
 	<title></title>
 
 	<script type="text/javascript" src="utils.js"></script>
+	<script type="text/javascript" src="auth.js"></script>
 	<script type="text/javascript" src="parser.js"></script>
 	<script type="text/javascript" src="media2.js"></script>
 	<script type="text/javascript" src="transport.js"></script>
@@ -17,10 +18,20 @@
 
 	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
 
+	<link rel="shortcut icon" href="icons/fav_icon.ico">
+
 	<style type="text/css">
 .mdl-card__title {
 	padding: 0;
 	position: relative;
+}
+
+.mdl-layout-icon {
+	background: url(icons/icon_32.png);
+}
+
+.mdl-layout-title {
+	margin-left: -9px;
 }
 
 button {
@@ -65,11 +76,11 @@ video {
 			<header class="mdl-layout__header">
 				<div class="mdl-layout-icon"></div>
 				<div class="mdl-layout__header-row">
-					<span class="mdl-layout-title">Reticulum</span>
+					<span class="mdl-layout-title">eticulum</span>
 					<div class="mdl-layout-spacer"></div>
 					<nav class="mdl-navigation">
-						<a class="mdl-navigation__link" href="#">Help</a>
-						<span class="mdl-layout-title">Disconnected</span>
+						<a class="mdl-navigation__link" href="/admin.html">Admin</a>
+						<span id="phone-state" class="mdl-layout-title">Disconnected</span>
 					</nav>
 				</div>
 			</header>
@@ -91,7 +102,7 @@ video {
 									<label class="mdl-textfield__label" for="username">Username</label>
 								</div>
 								<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-									<input class="mdl-textfield__input" type="text" id="password" value="spass" />
+									<input class="mdl-textfield__input" type="password" id="password" value="spass" />
 									<label class="mdl-textfield__label" for="password">Password</label>
 								</div>
 
@@ -103,8 +114,12 @@ video {
 									<label class="mdl-textfield__label" for="remote">Remote</label>
 								</div>
 
-								<button id="answer" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">Answer</button>
-								<button id="call" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent">Call</button>
+								<button id="hangup" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--disabled">Hangup</button>
+								<button id="reject" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--disabled">Reject</button>
+								<!-- <button id="reject" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--disabled">Reject</button> -->
+
+								<button id="answer" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--disabled">Answer</button>
+								<button id="call" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent mdl-button--disabled">Call</button>
 							</form>
 						</div>
 					</div>
@@ -139,29 +154,61 @@ video {
 	</div>
 
 	<script type="text/javascript">
-		var domain = location.hostname; // "reticulum.local"
+		var realm = location.hostname; // "reticulum.local"
 		var port = location.port; // 7000
 		var webphone = null;
 
 		var usernameElement = document.getElementById("username");
-		var passElement = document.getElementById("pass");
+		var passElement = document.getElementById("password");
 		var remoteElement = document.getElementById("remote");
 
+		if(typeof(Storage) !== "undefined") {
+			// Code for localStorage/sessionStorage.
+			usernameElement.value = localStorage.getItem("user");
+			passElement.value = localStorage.getItem("pass");
+			remoteElement.value = localStorage.getItem("remote");
+		} else {
+			console.log("Local Storage is not supported");
+		}
+
 		document.getElementById("connect").onclick = function() {
-			webphone = new Phone(true, true, usernameElement.value, domain, port);// autorespond, autodecline, user, domain
+			var userauth = new AuthInfo(usernameElement.value, passElement.value);
+
+			webphone = new Phone(true, true, userauth, realm, port, 'wss');// autorespond, autodecline, user, domain==realm
 			webphone.transport.connect();
 		}
 
 		document.getElementById("reg").onclick = function() {
 			webphone.register();
+
+			if(typeof(Storage) !== "undefined") {
+				// Code for localStorage/sessionStorage.
+				localStorage.setItem("user", usernameElement.value);
+				localStorage.setItem("pass", passElement.value);
+				localStorage.setItem("remote", remoteElement.value);
+			}
 		}
 
 		document.getElementById("call").onclick = function() {
-			webphone.call('"Henry Sinnreich" <sip:'+ remoteElement.value + '@' + domain + ':' + port + '>', "");
+			var remote = "";
+			if (remoteElement.value.indexOf("@") !== -1)
+				remote = '<sip:'+ remoteElement.value + '>';
+			else
+				remote = '<sip:'+ remoteElement.value + '@' + realm + ':' + port + '>', ""
+
+			webphone.call(remote);
 		}
 
 		document.getElementById("answer").onclick = function() {
 			webphone.answer();
+		}
+
+		document.getElementById("hangup").onclick = function() {
+			webphone.reject();
+		}
+
+		document.getElementById("reject").onclick = function() {
+			webphone.reject();
 		}
 
 	</script>

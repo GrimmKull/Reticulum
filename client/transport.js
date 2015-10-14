@@ -50,6 +50,12 @@ Transport.prototype.connect = function() {
 			stack.onData(msg.data, Reticulum.Parser.parseAddress(msg.origin).uri.host);
 		};
 
+		this.ws.onerror = function(event) {
+			console.log("/\\/\\/\\/\\/\\/\\/\\/\\/\\");
+			console.log(error);
+			console.log("\\/\\/\\/\\/\\/\\/\\/\\/\\/");
+		};
+
 		/*this.ws.onmessage = function(msg) {
 			//addMessage("Received: "+msg.data);
 		}*/

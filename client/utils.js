@@ -59,6 +59,19 @@ var Utils = {
 
 		return UUID;
 	},
+
+	unquote: function(str) {
+		if (str === undefined || str === null) return "";
+		if (str.length === 0) return "";
+
+		var quote = '"';
+		if (str[0] === quote && str[str.length - 1] === quote)
+			return str.slice(1, str.length - 1);
+		else
+			return str;
+    },
+
+
 	/**
 	MD5 by Joseph's Myers
 
@@ -224,7 +237,8 @@ var Utils = {
 	},
 
 	md5: function(s) {
-		return Utils.hex(Utils.md51(s));
+		//return Utils.hex(Utils.md51(s));
+		return MD5.hexdigest(s);
 	},
 
 	/* this function is much faster,
@@ -245,3 +259,194 @@ var Utils = {
 		}
 	}*/
 };
+
+var MD5 = (function() {
+	var p = 0;
+	var a = "";
+	var m = 8;
+	var k = function(s, v) {
+		var u = (s & 65535) + (v & 65535);
+		var t = (s >> 16) + (v >> 16) + (u >> 16);
+		return (t << 16) | (u & 65535)
+	};
+	var o = function(s, t) {
+		return (s << t) | (s >>> (32 - t))
+	};
+	var b = function(v) {
+		var u = [];
+		var s = (1 << m) - 1;
+		for (var t = 0; t < v.length * m; t += m) {
+			u[t >> 5] |= (v.charCodeAt(t / m) & s) << (t % 32)
+		}
+		return u
+	};
+	var g = function(u) {
+		var v = "";
+		var s = (1 << m) - 1;
+		for (var t = 0; t < u.length * 32; t += m) {
+			v += String.fromCharCode((u[t >> 5] >>> (t % 32)) & s)
+		}
+		return v
+	};
+	var r = function(u) {
+		var t = p ? "0123456789ABCDEF" : "0123456789abcdef";
+		var v = "";
+		for (var s = 0; s < u.length * 4; s++) {
+			v += t.charAt((u[s >> 2] >> ((s % 4) * 8 + 4)) & 15) + t.charAt((u[s >> 2] >> ((s % 4) * 8)) & 15)
+		}
+		return v
+	};
+	var q = function(v) {
+		var u = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+		var x = "";
+		var w, s;
+		for (var t = 0; t < v.length * 4; t += 3) {
+			w = (((v[t >> 2] >> 8 * (t % 4)) & 255) << 16) | (((v[t + 1 >> 2] >> 8 * ((t + 1) % 4)) & 255) << 8) | ((v[t + 2 >> 2] >> 8 * ((t + 2) % 4)) & 255);
+			for (s = 0; s < 4; s++) {
+				if (t * 8 + s * 6 > v.length * 32) {
+					x += a
+				} else {
+					x += u.charAt((w >> 6 * (3 - s)) & 63)
+				}
+			}
+		}
+		return x
+	};
+	var d = function(A, w, v, u, z, y) {
+		return k(o(k(k(w, A), k(u, y)), z), v)
+	};
+	var l = function(w, v, B, A, u, z, y) {
+		return d((v & B) | ((~v) & A), w, v, u, z, y)
+	};
+	var c = function(w, v, B, A, u, z, y) {
+		return d((v & A) | (B & (~A)), w, v, u, z, y)
+	};
+	var n = function(w, v, B, A, u, z, y) {
+		return d(v ^ B ^ A, w, v, u, z, y)
+	};
+	var j = function(w, v, B, A, u, z, y) {
+		return d(B ^ (v | (~A)), w, v, u, z, y)
+	};
+	var f = function(D, y) {
+		D[y >> 5] |= 128 << ((y) % 32);
+		D[(((y + 64) >>> 9) << 4) + 14] = y;
+		var C = 1732584193;
+		var B = -271733879;
+		var A = -1732584194;
+		var z = 271733878;
+		var w, v, u, s;
+		for (var t = 0; t < D.length; t += 16) {
+			w = C;
+			v = B;
+			u = A;
+			s = z;
+			C = l(C, B, A, z, D[t + 0], 7, -680876936);
+			z = l(z, C, B, A, D[t + 1], 12, -389564586);
+			A = l(A, z, C, B, D[t + 2], 17, 606105819);
+			B = l(B, A, z, C, D[t + 3], 22, -1044525330);
+			C = l(C, B, A, z, D[t + 4], 7, -176418897);
+			z = l(z, C, B, A, D[t + 5], 12, 1200080426);
+			A = l(A, z, C, B, D[t + 6], 17, -1473231341);
+			B = l(B, A, z, C, D[t + 7], 22, -45705983);
+			C = l(C, B, A, z, D[t + 8], 7, 1770035416);
+			z = l(z, C, B, A, D[t + 9], 12, -1958414417);
+			A = l(A, z, C, B, D[t + 10], 17, -42063);
+			B = l(B, A, z, C, D[t + 11], 22, -1990404162);
+			C = l(C, B, A, z, D[t + 12], 7, 1804603682);
+			z = l(z, C, B, A, D[t + 13], 12, -40341101);
+			A = l(A, z, C, B, D[t + 14], 17, -1502002290);
+			B = l(B, A, z, C, D[t + 15], 22, 1236535329);
+			C = c(C, B, A, z, D[t + 1], 5, -165796510);
+			z = c(z, C, B, A, D[t + 6], 9, -1069501632);
+			A = c(A, z, C, B, D[t + 11], 14, 643717713);
+			B = c(B, A, z, C, D[t + 0], 20, -373897302);
+			C = c(C, B, A, z, D[t + 5], 5, -701558691);
+			z = c(z, C, B, A, D[t + 10], 9, 38016083);
+			A = c(A, z, C, B, D[t + 15], 14, -660478335);
+			B = c(B, A, z, C, D[t + 4], 20, -405537848);
+			C = c(C, B, A, z, D[t + 9], 5, 568446438);
+			z = c(z, C, B, A, D[t + 14], 9, -1019803690);
+			A = c(A, z, C, B, D[t + 3], 14, -187363961);
+			B = c(B, A, z, C, D[t + 8], 20, 1163531501);
+			C = c(C, B, A, z, D[t + 13], 5, -1444681467);
+			z = c(z, C, B, A, D[t + 2], 9, -51403784);
+			A = c(A, z, C, B, D[t + 7], 14, 1735328473);
+			B = c(B, A, z, C, D[t + 12], 20, -1926607734);
+			C = n(C, B, A, z, D[t + 5], 4, -378558);
+			z = n(z, C, B, A, D[t + 8], 11, -2022574463);
+			A = n(A, z, C, B, D[t + 11], 16, 1839030562);
+			B = n(B, A, z, C, D[t + 14], 23, -35309556);
+			C = n(C, B, A, z, D[t + 1], 4, -1530992060);
+			z = n(z, C, B, A, D[t + 4], 11, 1272893353);
+			A = n(A, z, C, B, D[t + 7], 16, -155497632);
+			B = n(B, A, z, C, D[t + 10], 23, -1094730640);
+			C = n(C, B, A, z, D[t + 13], 4, 681279174);
+			z = n(z, C, B, A, D[t + 0], 11, -358537222);
+			A = n(A, z, C, B, D[t + 3], 16, -722521979);
+			B = n(B, A, z, C, D[t + 6], 23, 76029189);
+			C = n(C, B, A, z, D[t + 9], 4, -640364487);
+			z = n(z, C, B, A, D[t + 12], 11, -421815835);
+			A = n(A, z, C, B, D[t + 15], 16, 530742520);
+			B = n(B, A, z, C, D[t + 2], 23, -995338651);
+			C = j(C, B, A, z, D[t + 0], 6, -198630844);
+			z = j(z, C, B, A, D[t + 7], 10, 1126891415);
+			A = j(A, z, C, B, D[t + 14], 15, -1416354905);
+			B = j(B, A, z, C, D[t + 5], 21, -57434055);
+			C = j(C, B, A, z, D[t + 12], 6, 1700485571);
+			z = j(z, C, B, A, D[t + 3], 10, -1894986606);
+			A = j(A, z, C, B, D[t + 10], 15, -1051523);
+			B = j(B, A, z, C, D[t + 1], 21, -2054922799);
+			C = j(C, B, A, z, D[t + 8], 6, 1873313359);
+			z = j(z, C, B, A, D[t + 15], 10, -30611744);
+			A = j(A, z, C, B, D[t + 6], 15, -1560198380);
+			B = j(B, A, z, C, D[t + 13], 21, 1309151649);
+			C = j(C, B, A, z, D[t + 4], 6, -145523070);
+			z = j(z, C, B, A, D[t + 11], 10, -1120210379);
+			A = j(A, z, C, B, D[t + 2], 15, 718787259);
+			B = j(B, A, z, C, D[t + 9], 21, -343485551);
+			C = k(C, w);
+			B = k(B, v);
+			A = k(A, u);
+			z = k(z, s)
+		}
+		return [C, B, A, z]
+	};
+	var e = function(u, x) {
+		var w = b(u);
+		if (w.length > 16) {
+			w = f(w, u.length * m)
+		}
+		var s = new Array(16),
+			v = new Array(16);
+		for (var t = 0; t < 16; t++) {
+			s[t] = w[t] ^ 909522486;
+			v[t] = w[t] ^ 1549556828
+		}
+		var y = f(s.concat(b(x)), 512 + x.length * m);
+		return f(v.concat(y), 512 + 128)
+	};
+	var h = {
+		hexdigest: function(t) {
+			return r(f(b(t), t.length * m))
+		},
+		b64digest: function(t) {
+			return q(f(b(t), t.length * m))
+		},
+		hash: function(t) {
+			return g(f(b(t), t.length * m))
+		},
+		hmac_hexdigest: function(s, t) {
+			return r(e(s, t))
+		},
+		hmac_b64digest: function(s, t) {
+			return q(e(s, t))
+		},
+		hmac_hash: function(s, t) {
+			return g(e(s, t))
+		},
+		test: function() {
+			return MD5.hexdigest("abc") === "900150983cd24fb0d6963f7d28e17f72"
+		}
+	};
+	return h
+})();

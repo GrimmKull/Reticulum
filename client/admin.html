@@ -11,20 +11,35 @@
 	<script type="text/javascript" src="ua.js"></script>
 	<script type="text/javascript" src="rtculum.js"></script>
 
-	<link rel="stylesheet" href="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.blue_grey-red.min.css">
-	<script src="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.min.js"></script>
+	<!-- <link rel="stylesheet" href="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.blue_grey-red.min.css">
+	<script src="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.min.js"></script> -->
+	<link rel="stylesheet" href="https://storage.googleapis.com/code.getmdl.io/1.1.0/material.blue_grey-red.min.css">
+	<script src="https://storage.googleapis.com/code.getmdl.io/1.1.0/material.min.js"></script>
 	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
 
-	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+	<!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css"> -->
+
+	<link rel="shortcut icon" href="../icons/dark icon_16.png">
 
     <script src="raphael-min.js"></script>
     <script src="underscore-min.js"></script>
     <script src="sequence-diagram-min.js"></script>
 
 	<style type="text/css">
+.mdl-layout-icon {
+	background: url(../icons/icon_32.png);
+}
+
+.mdl-layout-title {
+	margin-left: -9px;
+}
+
 .mdl-card__title {
-	padding: 0;
+	padding: 20px;
 	position: relative;
+
+	color: rgb(255,255,255);
+    background-color: rgb(255,82,82);
 }
 
 button {
@@ -50,9 +65,25 @@ button {
     padding: 0;
 }
 
+.user-ctrls.list {
+	padding: 10px;
+}
+
 .list button {
     width: 100%;
     margin: 0 !important;
+}
+
+.mdl-dialog {
+	padding: 50px;
+}
+
+table {
+	width: 100%;
+}
+
+#users-container {
+	box-shadow: none;
 }
 	</style>
 </head>
@@ -62,11 +93,11 @@ button {
 			<header class="mdl-layout__header">
 				<div class="mdl-layout-icon"></div>
 				<div class="mdl-layout__header-row">
-					<span class="mdl-layout-title">Reticulum Admin</span>
+					<span class="mdl-layout-title">eticulum Admin</span>
 					<div class="mdl-layout-spacer"></div>
 					<nav class="mdl-navigation">
 						<a class="mdl-navigation__link" href="#">Help</a>
-						<span class="mdl-layout-title">Disconnected</span>
+						<span id="connection" class="mdl-layout-title">Disconnected</span>
 					</nav>
 				</div>
 			</header>
@@ -74,20 +105,20 @@ button {
 			<main class="mdl-layout__content">
                 <div class="mdl-tabs mdl-js-tabs mdl-js-ripple-effect">
                     <div class="mdl-tabs__tab-bar">
-                        <a href="#registrations" class="mdl-tabs__tab is-active">Registrations</a>
-                        <a href="#calls" class="mdl-tabs__tab">Calls</a>
+                        <a href="#callflow" class="mdl-tabs__tab is-active">Call Flow</a>
+                        <!-- <a href="#calls" class="mdl-tabs__tab">Calls</a> -->
                         <a href="#transactions" class="mdl-tabs__tab">Transactions</a>
-                        <a href="#dialogs" class="mdl-tabs__tab">Dialogs</a>
+                        <a href="#users" class="mdl-tabs__tab">Users</a>
                     </div>
 
-                    <div class="mdl-tabs__panel is-active" id="registrations">
+                    <div class="mdl-tabs__panel is-active" id="callflow">
                         <div class="grid mdl-grid">
                             <div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--2dp">
                                 <ul class="list">
-                                    <button class="mdl-button mdl-js-button">Tywin</button>
+                                    <!-- <button class="mdl-button mdl-js-button">Tywin</button>
                                     <button class="mdl-button mdl-js-button">Cersei</button>
                                     <button class="mdl-button mdl-js-button">Jamie</button>
-                                    <button class="mdl-button mdl-js-button">Tyrion</button>
+                                    <button class="mdl-button mdl-js-button">Tyrion</button> -->
                                 </ul>
                             </div>
                             <div class="mdl-card mdl-cell mdl-cell--9-col mdl-shadow--2dp">
@@ -123,40 +154,58 @@ button {
                     <div class="mdl-tabs__panel" id="transactions">
                         <div class="grid mdl-grid">
                             <div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--2dp">
-                                <ul class="list">
-                                    <button class="mdl-button mdl-js-button">Tywin</button>
-                                    <button class="mdl-button mdl-js-button">Cersei</button>
-                                    <button class="mdl-button mdl-js-button">Jamie</button>
-                                    <button class="mdl-button mdl-js-button">Tyrion</button>
+                                <ul id="trans_list" class="list">
+
                                 </ul>
                             </div>
-                            <div class="mdl-card mdl-cell mdl-cell--9-col mdl-shadow--2dp">
-                                <div class="mdl-card__title"></div>
 
-                                <div class="mdl-card__actions mdl-card--border">
-                                    <div id="diagram3"></div>
-                                </div>
-                            </div>
+
+							<div class="demo-card-square mdl-card mdl-cell mdl-cell--9-col mdl-shadow--2dp">
+								<div class="mdl-card__title mdl-card--expand">
+									<h2 class="mdl-card__title-text">Transaction</h2>
+								</div>
+								<div id="trans-details" class="mdl-card__supporting-text">
+									<div id="trans-details-id"></div>
+									<strong>Type:</strong>
+									<div id="trans-details-type"></div>
+									<strong>State:</strong>
+									<div id="trans-details-state"></div>
+								</div>
+								<div class="mdl-card__actions mdl-card--border">
+								</div>
+							</div>
                         </div>
                     </div>
 
-                    <div class="mdl-tabs__panel" id="dialogs">
+                    <div class="mdl-tabs__panel" id="users">
                         <div class="grid mdl-grid">
                             <div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--2dp">
-                                <ul class="list">
-                                    <button class="mdl-button mdl-js-button">Tywin</button>
+                                <ul class="user-ctrls list">
+									<button id="show-dialog" type="button" class="mdl-button mdl-button--accent mdl-button--raised">Register</button>
+                                    <!-- <button class="mdl-button mdl-js-button">Tywin</button>
                                     <button class="mdl-button mdl-js-button">Cersei</button>
                                     <button class="mdl-button mdl-js-button">Jamie</button>
-                                    <button class="mdl-button mdl-js-button">Tyrion</button>
+                                    <button class="mdl-button mdl-js-button">Tyrion</button> -->
                                 </ul>
                             </div>
                             <div class="mdl-card mdl-cell mdl-cell--9-col mdl-shadow--2dp">
-                                <div class="mdl-card__title"></div>
+                                <!-- <div class="mdl-card__title"></div>
 
-                                <div class="mdl-card__actions mdl-card--border">
-                                    <div id="diagram4"></div>
-                                </div>
-                            </div>
+                                <div class="mdl-card__actions mdl-card--border"> -->
+									<table id="users-container" class="mdl-data-table mdl-js-data-table mdl-shadow--2dp">
+									  <thead>
+									    <tr>
+									      <th class="mdl-data-table__cell--non-numeric">User</th>
+									      <th class="mdl-data-table__cell--non-numeric">Email</th>
+										  <th class="mdl-data-table__cell--non-numeric">State</th>
+									    </tr>
+									  </thead>
+									  <tbody>
+
+									  </tbody>
+									</table>
+                                <!-- </div>
+                            </div> -->
                         </div>
                     </div>
 
@@ -190,7 +239,123 @@ button {
 		</div>
 	</div>
 
+	<dialog class="mdl-dialog">
+		<h4 class="mdl-dialog__title">Register</h4>
+		<div class="mdl-dialog__content">
+			<form action="#">
+				<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+					<input class="mdl-textfield__input" type="text" id="name">
+					<label class="mdl-textfield__label" for="name">Name</label>
+				</div>
+
+				<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+					<input class="mdl-textfield__input" type="email" id="email">
+					<label class="mdl-textfield__label" for="email">Email</label>
+				</div>
+
+				<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+					<input class="mdl-textfield__input" type="password" id="password">
+					<label class="mdl-textfield__label" for="password">Password</label>
+				</div>
+			</form>
+		</div>
+
+		<div class="mdl-dialog__actions">
+			<button type="button" class="mdl-button" onclick="register()">Register</button>
+			<button type="button" class="mdl-button close">Cancel</button>
+		</div>
+	</dialog>
+
     <script type="text/javascript">
+	var dialog = document.querySelector('dialog');
+	var showDialogButton = document.querySelector('#show-dialog');
+	if (! dialog.showModal) {
+		dialogPolyfill.registerDialog(dialog);
+	}
+	showDialogButton.addEventListener('click', function() {
+		dialog.showModal();
+	});
+	dialog.querySelector('.close').addEventListener('click', function() {
+		dialog.close();
+	});
+
+var transactions = {};
+var dialogs = {};
+var messages = [];
+
+var users = {};
+
+function refreshTransactions() {
+	clear()
+};
+
+function appendItem(dest, id, data) {
+	var ul = document.getElementById(dest);
+	var li = document.createElement("button");
+	li.appendChild(document.createTextNode(data));
+	li.className = "mdl-button mdl-js-button";
+	li.setAttribute("id", id);
+	li.setAttribute("onclick", "onTrans(\""+id+"\")");
+	ul.appendChild(li);
+}
+
+function onTrans(id) {
+	var trans = transactions[id];
+	//console.log(trans)
+
+	document.getElementById("trans-details-id").innerText = trans.id;
+	document.getElementById("trans-details-state").innerText = trans.states.join(" -> ");
+	document.getElementById("trans-details-type").innerText = trans.type;
+};
+
+function updateItem(dest, id, data) {
+	var li = document.getElementById(id);
+	// var li = document.createElement("button");
+	// li.appendChild(document.createTextNode(data));
+	// li.className = "mdl-button mdl-js-button";
+	// li.setAttribute("id", id);
+	// ul.appendChild(li);
+	li.innerText = transactions[id].states.join(" -> ");
+}
+
+
+function register() {
+	ws.send(JSON.stringify({
+		action: "register",
+		content: {
+			name: document.getElementById("name").value,
+			mail: document.getElementById("email").value,
+			pass: document.getElementById("password").value,
+		}
+	}));
+	dialog.close();
+	getUsers();
+}
+
+function getUsers() {
+	ws.send(JSON.stringify({action: "users"}));
+}
+
+function populateUsers() {
+	var tbl = document.getElementById("users-container").getElementsByTagName('tbody')[0];
+
+	while (tbl.firstChild) {
+	    tbl.removeChild(tbl.firstChild);
+	}
+
+	for (var i = 0; i < users.length; i++) {
+	    var row = tbl.insertRow(-1);
+	    var c0 = row.insertCell(0);
+	    var c1 = row.insertCell(1);
+		var c2 = row.insertCell(2);
+		c0.className = "mdl-data-table__cell--non-numeric";
+		c1.className = "mdl-data-table__cell--non-numeric";
+		c2.className = "mdl-data-table__cell--non-numeric";
+	    c0.innerHTML = users[i].name;
+	    c1.innerHTML = users[i].mail;
+	}
+}
+
 var d1 = "";
 d1 += "A->Proxy: Message1\n";
 d1 += "Proxy->B: Message2\n";
@@ -199,25 +364,85 @@ d1 += "Proxy->A: Message4\n";
 var diagram = Diagram.parse(d1);
 diagram.drawSVG("diagram1", {theme: 'hand'});
 
-var protocol = "ws"
-var domain = "reticulum.local"; // location.hostname;
+var protocol = "wss"
+// var realm = "reticulum.local"; // location.hostname;
+var realm = location.hostname;
 var port = 7000; // location.port;
 
-var ws = new WebSocket(protocol + "://" + domain + ":" + port, "admin");
+var ws = new WebSocket(protocol + "://" + realm + ":" + port, "admin");
 //console.log("[CONNECT]");
 //console.log("Socket state:", this.ws.readyState);
 
 ws.onopen = function() {
     //addMessage("Socket status: "+socket.readyState+" (open)");
     console.log("[OPENED]");
+	document.getElementById("connection").innerText = "Connected";
+
+	getUsers();
 };
 
 ws.onclose = function() {
     //addMessage("Socket status: "+socket.readyState+" (closed)");
     console.log("[CLOSED]");
+	document.getElementById("connection").innerText = "Disconnected";
+};
+
+var raw = "";
+var diagram = null;
+
+ws.onerror = function(error) {
+	console.log("/\\/\\/\\/\\/\\/\\/\\/\\/\\");
+	console.log(error);
+	console.log("\\/\\/\\/\\/\\/\\/\\/\\/\\/");
 };
 
 ws.onmessage = function(msg) {
+	var content = JSON.parse(msg.data)
+
+	console.log(content)
+
+	if (content.type === "message") {
+		messages.push(content.data);
+
+		if (document.getElementById("diagram1").firstChild)
+			document.getElementById("diagram1").firstChild.remove();
+
+		// if (content.data.direction === "in")
+		// 	raw += content.data.from + "->Proxy: " + content.data.method + "\n";
+		// else
+		// 	raw += "Proxy->" + content.data.to + ": " + content.data.method + "\n";
+
+		if (content.data.direction === "in")
+			raw += content.data.remote + "->Proxy: " + content.data.method + "\n";
+		else
+			raw += "Proxy->" + content.data.remote + ": " + content.data.method + "\n";
+
+		diagram = Diagram.parse(raw);
+		diagram.drawSVG("diagram1", {theme: 'hand'});
+	} else if (content.type === "new_trans") {
+		transactions[content.data.id] = {
+			id: content.data.id,
+			type: content.data.type,
+			states: [content.data.state],
+		}
+
+		console.log("NEW TRANS", content.data.id, content.data.type, content.data.state);
+
+		//refreshTransactions();
+		appendItem("trans_list", content.data.id, content.data.state)
+	} else if (content.type === "new_trans_state") {
+		var trans = transactions[content.data.id];
+
+		if (transactions[content.data.id]) transactions[content.data.id].states.push(content.data.state);
+
+		console.log("NEW STATE", content.data.id, content.data.state);
+
+		updateItem("trans_list", content.data.id, content.data.state);
+	} else if (content.type === "users") {
+		users = content.data.users;
+		populateUsers();
+	}
+
     // stack.onData(msg.data, Reticulum.Parser.parseAddress(msg.origin).uri.host);
 };
 

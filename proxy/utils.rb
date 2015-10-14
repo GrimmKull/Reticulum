@@ -32,62 +32,75 @@ class Utils
         return nonce
     end
 
-    #Digest.challenge({realm: @realm}, Sip.makeResponse(request, 401, 'Authentication Required'))
     def self.challenge context, response
-        context.proxy = (response.status == 407)
+        proxy = (response.statusCode == 407)
+		realm = "reticulum"
+        nc = 0
 
-        context.nonce = context.cnonce || rbytes()
-        context.nc = 0
-        context.qop = context.qop || 'auth'
-        context.algorithm = context.algorithm || 'md5'
+		nonce = (context.nil? or context.nonce.nil?) ? Utils.genhex(8) : context.nonce
+        qop = (context.nil? or context.qop.nil?) ? "auth" : context.qop
+        algorithm = (context.nil? or context.algorithm.nil?) ? "md5" : context.algorithm
+		opaque = (context.nil? or context.opaque.nil?) ? Utils.genhex(10) : context.opaque
+
+        hname = proxy ? 'Proxy-Authenticate' : 'WWW-Authenticate';
+
+        value = 'Digest ';
+        value += "realm=\"" + realm + "\", "
+        value += "qop=\"" + qop + "\", "
+		value += "algorithm=\"" + algorithm + "\", "
+		value += "nonce=\"" + nonce + "\", "
+		value += "opaque=\"" + opaque + "\""
 
 
-        var hname = context.proxy ? 'proxy-authenticate' : 'www-authenticate';
-        (response.headers[hname] || (response.headers[hname]=[])).push({
-            scheme: 'Digest',
-            realm: q(context.realm),
-            qop: q(context.qop),
-            algorithm: q(context.algoritm),
-            nonce: q(context.nonce),
-            opaque: q(context.opaque)
-        })
+        response._addHeader(hname, value)
 
-        return rs
+		unless context.nil?
+			context.proxy = proxy
+	        context.nonce = nonce
+	        context.nc = nc
+	        context.qop = qop
+	        context.algorithm = algorithm
+			context.opaque = opaque
+			context.realm = realm
+		end
+
+		return response
     end
 
-    #digest.authenticateRequest(userinfo.session, rq, {user: user, password: userinfo.password})
-    def self.authenticateRequest context, request, username, password
-        #var response = findDigestRealm(rq.headers[context.proxy ? 'proxy-authorization': 'authorization'], context.realm);
+    def self.authenticateRequest user, request
+		return false if request.auth.nil?
 
-        #if(!response) return false;
+        context = user.session
 
-        cnonce = response.cnonce.unquote
-        uri = response.uri.unquote
-        qop = response.qop.unquote
+        cnonce = request.auth.cnonce.unquote
+        uri = request.auth.uri.unquote
+        qop = request.auth.qop.unquote
+		#rnc = request.auth.nc.unquote
 
         context.nc += 1
 
-        if context.algoritm == "md5-sess"
-            context.ha1 = makeMD5(makeMD5(username + ":" + context.realm + ":" + password) + ":" + context.nonce + ":" + cnonce)
+		snc = context.nc.to_s
+		nc = "0"*(8-snc.length) + snc
+
+        if context.algorithm == "md5-sess"
+            context.ha1 = makeMD5(makeMD5(user.name + ":" + context.realm + ":" + user.password) + ":" + context.nonce + ":" + cnonce)
         else # algoritm directive's value is "md5"
-            context.ha1 = makeMD5(username + ":" + context.realm + ":" + password)
+            context.ha1 = makeMD5(user.name + ":" + context.realm + ":" + user.password)
         end
 
         if context.qop == "auth-int"
-            context.ha2 = makeMD5(request.method + ":" + request.uri + ":" + makeMD5(entityBody))
+            context.ha2 = makeMD5(request.method + ":" + uri + ":" + makeMD5(request.body))
         else # qop directive's value is "auth"
-            context.ha2 = makeMD5(request.method + ":" + request.uri)
+            context.ha2 = makeMD5(request.method + ":" + uri)
         end
 
-        if context.qop == "auth" or context.qop == "auth-int"
-            digest = makeMD5(context.ha1 + ":" + context.nonce + ":" + context.nc + ":" + context.cnonce + ":" + qop + ":" + context.ha2)
-        else
+		if context.qop == "auth" or context.qop == "auth-int"
+			digest = makeMD5(context.ha1 + ":" + context.nonce + ":" + nc + ":" + cnonce + ":" + context.qop + ":" + context.ha2)
+		else
             digest = makeMD5(context.ha1 + ":" + context.nonce + ":" + context.ha2)
-        end
+		end
 
-        #digest = calculateDigest({ha1:context.ha1, method:rq.method, nonce:context.nonce, nc:numberTo8Hex(context.nc), cnonce:cnonce, qop:qop, uri:uri, entity:rq.content});
-
-        if digest == response.response.unquote
+        if digest == request.auth.response.unquote
             context.cnonce = cnonce
             context.uri = uri
             context.qop = qop

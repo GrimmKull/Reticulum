@@ -1,11 +1,15 @@
-module Reticulum
-	module Utils
-		TOKEN_NUMERIC_16 = 4
+require './proxy/utils.rb'
 
-		def self.token(length, type)
-			return 121314
-		end
-	end
+require 'base64'
+
+module Reticulum
+	# module Utils
+	# 	TOKEN_NUMERIC_16 = 4
+	#
+	# 	def self.token(length, type)
+	# 		return 121314
+	# 	end
+	# end
 
 	module SIP
 		class Header
@@ -15,17 +19,8 @@ module Reticulum
 		end
 
 		class Message
-			attr_accessor :headers # = {};
-			#attr_accessor :via # = {};
-			#attr_accessor :to # = {};
-			#attr_accessor :from # = {};
-			#attr_accessor :callid # = null;
-			#attr_accessor :cseq # = null;
-			#attr_accessor :maxForwards # = 0;
-			#attr_accessor :contentType # = null;
-			#attr_accessor :contentLength # = null;
-			#attr_accessor :expires # = null;
-			#attr_accessor :pos # = 0;
+			attr_accessor :headers
+
 			attr_accessor :tag
 			attr_accessor :method
 
@@ -43,8 +38,9 @@ module Reticulum
 			attr_accessor :headers
 
 			attr_accessor :via
-			# implement route parser
-			attr_accessor :route
+			attr_accessor :contacts
+			attr_accessor :routes
+			attr_accessor :recordRoutes
 			attr_accessor :to
 			attr_accessor :from
 			attr_accessor :callid
@@ -54,64 +50,207 @@ module Reticulum
 			attr_accessor :contentLength
 			attr_accessor :expires
 
-			attr_accessor :contacts
-
-			attr_accessor :contextId
+			attr_accessor :challenge
+			attr_accessor :auth
 
 			attr_accessor :pos
 			attr_accessor :raw
 
 			def initialize
 				@headers = {}
+				@via = []
+				@contacts = []
+				@routes = []
+				@recordRoutes = []
+
+				@version = "SIP/2.0"
+
+				@statusCode = 0
+				@contentLength = 0
+				# @expires = 1800
 			end
 
+			def id
+				mark = "0"
+				mark = "1" if @isRequest
+				return [mark, @callid, @method, @cseq.number].join("|")
+			end
+
+			def requestID
+				return ["1", @callid, @method, @cseq.number].join("|")
+			end
 
 			def body
-				return "" if pos.nil?
+				return "" if @pos.nil?
 
 				return @raw[@pos..-1]
 			end
 
+			def contextId
+				via = @via.first
+
+				via = @via[1] if @via.length >= 2 && @via.first.host.name == Proxy.proxyip
+
+				p [ "CONTEXT ID:", via.params["branch"], via.transport, via.host.name, via.host.port.to_s, @callid, @cseq.number ]
+				#return [via.params.branch, via.protocol, via.host, via.port, msg.headers['call-id'], msg.headers.cseq.seq];
+				return [via.params["branch"], via.transport, via.host.name, via.host.port.to_s, @callid, @cseq.number].join
+			end
+
+			def fixContact(address, port, proxyip, proxyport)
+			   if @method == 'REGISTER'
+				   return if @contacts.nil? || @contacts.empty?
+
+			       if @contacts.first.address.uri.host.name.end_with? '.invalid'
+			           contact = @contacts.shift
+p "1", contact.to_s
+			        #    dname = contact.address.dname
+			        #    scheme = contact.address.uri.scheme
+			        #    user = contact.address.uri.user
+			        #    server = proxyip
+					#    server += ":" + proxyport unless proxyport.empty?
+					   #
+			        #    dname = dname.quote if dname.include? " "
+					   #
+			        #    # TODO: add params for Address => transport=tcp;ws-src-ip=37.203.111.230;ws-src-port=14368;ws-src-proto=wss
+			        #    aparams = "transport=tcp;ws-src-ip=" + address + ";ws-src-port=" + port.to_s + ";ws-src-proto=wss"
+					contact.address.params["transport"] = "tcp"
+					contact.address.params["ws-src-ip"] = address
+					contact.address.params["ws-src-port"] = port.to_s
+					contact.address.params["ws-src-proto"] = "wss"
+
+					contact.address.uri.host.name = proxyip
+					contact.address.uri.host.port = proxyport
+					   #
+			        #    # TODO: add params for contact => expires, received
+			        #    cparams = ";expires=" + contact.address.params["expires"]
+					   #
+			        #    contact = Reticulum::Parser::ParseContact(dname + " <" + scheme + ":" + user + "@" + server + aparams + ">" + cparams)
+p "2", contact.to_s
+			           @contacts.unshift contact
+			       end
+			   end
+			end
+
+			def fixVia(address, port)
+				if @method == 'REGISTER'
+					return if @via.nil? || @via.empty?
+					if @via.first.sentby.end_with? '.invalid'
+						via = @via.shift
+
+						via = Reticulum::Parser::ParseVia("SIP/2.0/TCP " + address + ":" + port.to_s + ";rport;branch=" + via.params["branch"] + ";ws-hacked=WSS")
+
+						@via.unshift via
+					end
+				end
+			end
+
 			def to_s
 				string = ""
+				# begin
+					if (request?)
+						remote = @remoteURI;
 
-				if (request?)
-					remote = @remoteURI;
+						if (remote.nil?)
+							remote = @uri.to_s
+						end
 
-					if (remote.nil?)
-						remote = @uri.raw
-					end
-
-					string += @method + " " + remote + " " + @version
-				else
-					string += @version + " " + @statusCode.to_s + " " + @reason
-				end
-
-				string += "\r\n"
-
-				@headers.each { |key, header|
-					if header.kind_of? (Array)
-						header.each { |h|
-							# TODO: Add support for multiple Via headers
-							if h.name == "Via"
-								v = @via#h.value
-								v = v.first if v.kind_of? (Array)
-
-								string += v.to_s + "\r\n"
-							else
-								string += h.name + ": " + h.value + "\r\n"
-							end
-						}
+						string += @method + " " + remote + " " + @version
 					else
-						string += header.name + ": " + header.value + "\r\n"
+						p [ "[RESP TO $]", @version , @statusCode.to_s , @reason]
+						p [ "Error stringify msg.", self ] if @statusCode.nil?
+
+						@statusCode = 0 if @statusCode.nil?
+						@reason = "Unknown reason" if @reason.nil?
+						@version = "SIP/2.0" if @version.nil?
+
+						string += @version + " " + @statusCode.to_s + " " + @reason
 					end
-				}
 
-				string += "\r\n"
+					string += "\r\n"
 
-				string += body
+					@via.each { |value|
+						string += "Via: " + value.to_s + "\r\n"
+					}
+
+					string += "To: " + @to.to_s + "\r\n"
+					string += "From: " + @from.to_s + "\r\n"
+					string += "Call-ID: " + @callid + "\r\n"
+					string += "CSeq: " + @cseq.to_s + "\r\n"
+
+					@contacts.each { |value|
+						string += "Contact: " + value.to_s + "\r\n"
+					}
+
+					@routes.each { |value|
+						string += "Route: " + value.to_s + "\r\n"
+					}
+
+					@recordRoutes.each { |value|
+						string += "Record-Route: " + value.to_s + "\r\n"
+					}
+
+					string += @challenge.to_s + "\r\n" unless @challenge.nil?
+					string += @auth.to_s + "\r\n" unless @auth.nil?
+
+					string += "Max-Forwards: " + @maxForwards.to_s + "\r\n"  unless @maxForwards.nil?
+					string += "Content-Type: " + @contentType.to_s + "\r\n" unless @contentType.nil?
+					string += "Content-Length: " + @contentLength.to_s + "\r\n" unless @contentLength.nil?
+					string += "Expires: " + @expires.to_s + "\r\n" unless @expires.nil?
+
+					@headers.each { |key, header|
+						p ["HEADERS", key, header]
+						if header.kind_of? (Array)
+							header.each { |h|
+								# if h.name == "Via"
+								# 	v = @via#h.value
+								# 	v = v.first if v.kind_of? (Array)
+								#
+								# 	string += v.to_s + "\r\n"
+								if h.kind_of? (Array)
+									h.each { |item|
+										string += item.to_s + "\r\n"
+									}
+								# elsif h.name == "Via"
+								# 	v = @via#h.value
+								# 	v = v.first if v.kind_of? (Array)
+								#
+								# 	string += v.to_s + "\r\n"
+								else
+									string += h.name + ": " + h.value + "\r\n"
+								end
+							}
+						else
+							string += header.name + ": " + header.value + "\r\n"
+						end
+					}
+
+					string += "\r\n"
+
+					string += body
+				# rescue => e
+		        #     p [ "Message to_s error.", e.message ]
+				# 	# puts [ "======================================="]
+				# 	# puts [ self ]
+				# 	# puts [ "======================================="]
+				# end
 
 				return string
+			end
+
+			def pushVia(data)
+				id = Parser::HEADER_ID["Via"]
+
+				@headers[id] = [] unless headers[id].kind_of? (Array)
+				#@via = [] unless via.kind_of? (Array)
+				data.split(",").map { |x|
+					h = SIP::Header.new
+					h.name = "Via"
+					h.id = id
+					h.value = x
+
+					#@headers[id].push(h)
+					@via.push(Parser::ParseVia(x))
+				}
 			end
 
 			def unshiftVia(data)
@@ -125,14 +264,18 @@ module Reticulum
 					h.id = id
 					h.value = x
 
-					@headers[id].unshift(h)
+					#@headers[id].unshift(h)
 					@via.unshift(Parser::ParseVia(x))
 				}
 			end
 
 			def shiftVia
 				@via.shift
-				@headers[Parser::HEADER_ID["Via"]].shift
+				#@headers[Parser::HEADER_ID["Via"]].shift
+			end
+
+			def unshiftRecordRoute(data)
+				_addHeader("Record-Route", data)
 			end
 
 			def _addHeader(name, data)
@@ -146,53 +289,69 @@ module Reticulum
 				header.id = id
 				header.value = data
 
-				if Parser::IsCommaSeparatedHeader(id) #&& !@headers[id].nil?
-					@headers[id] = [] unless headers[id].kind_of? (Array)
-					@headers[id] += header.value.split(",").map { |val|
-						h = SIP::Header.new
-						h.name = name
-						h.id = id
-						h.value = val
-
-						h
-					}
-				else
-					@headers[id] = header
-				end
-
 				# parse common headers
 				case id
 					# TODO: fix issues with multiple VIA headers
 					when Parser::HEADERS.index('SIP_HDR_VIA')
-						# NOTE: possible problems with missing Via params
-						#if @via.nil? || @via.sentby.nil? || @via.sentby.empty?
-						# NOTE: this might not be an issue on the proxy side
-						@via = [] unless via.kind_of? (Array)
-						@via += data.split(",").map { |x| Parser::ParseVia(x) }
-						#end
+						@via = [] if @via.nil?
+						@via = [] unless @via.kind_of? (Array)
+
+						# NOTE: encode commas and special characters in commented content
+						data = data.split('"',-1).map.with_index { |x, i| (i%2 == 1) ? Base64.encode64(x) : x }.join('"')
+
+						@via += data.split(",").map { |val|
+							val = val.split('"',-1).map.with_index { |x, i| (i%2 == 1) ? Base64.decode64(x) : x }.join('"')
+
+							Parser::ParseVia(val)
+						}
+					when Parser::HEADERS.index('SIP_HDR_CONTACT')
+						@contacts = [] if @contacts.nil?
+						@contacts = [] unless @contacts.kind_of? (Array)
+
+						# TODO: Fix duplicate contacts when Header has comma separated data
+						# NOTE: encode commas and special characters in commented content
+						data = data.split('"',-1).map.with_index { |x, i| (i%2 == 1) ? Base64.encode64(x) : x }.join('"')
+
+						@contacts += data.split(",").map { |val|
+							val = val.split('"',-1).map.with_index { |x, i| (i%2 == 1) ? Base64.decode64(x) : x }.join('"')
+							Parser::ParseContact(val)
+						}
+					when Parser::HEADERS.index('SIP_HDR_ROUTE')
+						@routes = [] if @routes.nil?
+						@routes = [] unless @routes.kind_of? (Array)
+
+						@routes += data.split(",").map { |val|
+							Parser::ParseAddress(val)
+						}
+					when  Parser::HEADERS.index('SIP_HDR_RECORD_ROUTE')
+						@recordRoutes = [] if @recordRoutes.nil?
+						@recordRoutes = [] unless @recordRoutes.kind_of? (Array)
+
+						@recordRoutes += data.split(",").map { |val|
+							Parser::ParseAddress(val)
+						}
 					when Parser::HEADERS.index('SIP_HDR_TO')
 						@to = Parser::ParseAddress(header.value)
 
 						if !@to.nil?
-							@to.tag = Parser::ParseParam(@to.params, "tag")
+							#@to.tag = Parser::ParseParam(@to.params, "tag")
+							#@to.tag = @to.params["tag"]
 							@to.value = header.value
 						end
 					when Parser::HEADERS.index('SIP_HDR_FROM')
 						@from = Parser::ParseAddress(header.value)
 
 						if !@from.nil?
-							@from.tag = Parser::ParseParam(@from.params, "tag")
+							#@from.tag = Parser::ParseParam(@from.params, "tag")
+							#@from.tag = @from.params["tag"]
 							@from.value = header.value
 						end
-					when Parser::HEADERS.index('SIP_HDR_CONTACT')
-						@contacts = [] if @contacts.nil?
-
-						# TODO: Fix duplicate contacts when Header has comma separated data
-						@contacts += header.value.split(",").map { |contact| Parser::ParseContact(contact) }
 					when Parser::HEADERS.index('SIP_HDR_CALL_ID')
 						@callid = header.value
 					when Parser::HEADERS.index('SIP_HDR_CSEQ')
 						@cseq = Parser::ParseCSeq(header.value)
+
+						@method = @cseq.method unless @isRequest
 					when Parser::HEADERS.index('SIP_HDR_MAX_FORWARDS')
 						@maxForwards = header.value
 					when Parser::HEADERS.index('SIP_HDR_CONTENT_TYPE')
@@ -201,6 +360,29 @@ module Reticulum
 						@contentLength = header.value
 					when Parser::HEADERS.index('SIP_HDR_EXPIRES')
 						@expires = header.value
+					when Parser::HEADERS.index('SIP_HDR_WWW_AUTHENTICATE') || Parser::HEADERS.index('SIP_HDR_PROXY_AUTHENTICATE')
+						@challenge = Parser::ParseAuthenticate(header.value)
+						@challenge.proxy = (id == Parser::HEADERS.index('SIP_HDR_PROXY_AUTHENTICATE'))
+					when Parser::HEADERS.index('SIP_HDR_AUTHORIZATION') || Parser::HEADERS.index('SIP_HDR_PROXY_AUTHORIZATION')
+						@auth = Parser::ParseAuthorization(header.value)
+						@auth.proxy = (id == Parser::HEADERS.index('SIP_HDR_PROXY_AUTHORIZATION'))
+					else
+						if Parser::IsCommaSeparatedHeader(id) #&& !@headers[id].nil?
+							@headers[id] = [] unless @headers[id].kind_of? (Array)
+							# NOTE: encode commas and special characters in commented content
+							header.value = header.value.split('"',-1).map.with_index { |x, i| (i%2 == 1) ? Base64.encode64(x) : x }.join('"')
+							@headers[id] += header.value.split(",").map { |val|
+								val = val.split('"',-1).map.with_index { |x, i| (i%2 == 1) ? Base64.decode64(x) : x }.join('"')
+								h = SIP::Header.new
+								h.name = name
+								h.id = id
+								h.value = val
+
+								h
+							}
+						else
+							@headers[id] = header
+						end
 				end
 			end
 		end
@@ -679,6 +861,28 @@ module Reticulum
 		"",
 		].join("\r\n")
 
+		T8 = [
+		"SIP/2.0 486 Busy Here",
+		"Call-ID: 9ba49f9e75d055d071fb6566c9eaa6d3979f@localhost",
+		"CSeq: 3 INVITE",
+		"From: undefined <sip:sanjin@10.1.80.105>;tag=vnvrhjfih0",
+		"To: undefined <sip:edo@10.1.80.105:7000>;tag=93vetd6a3r",
+		"Via: SIP/2.0/WSS 10.1.80.105:7000;branch=z9hG4bKe23a1be8",
+		"",
+		"",
+		].join("\r\n")
+
+		T9 = [
+		"SIP/2.0 486 Busy",
+		"Call-ID: 9ba49f9e75d055d071fb6566c9eaa6d3979f@localhost",
+		"CSeq: 3 INVITE",
+		"From: undefined <sip:sanjin@10.1.80.105>;tag=vnvrhjfih0",
+		"To: undefined <sip:edo@10.1.80.105:7000>;tag=93vetd6a3r",
+		"Via: SIP/2.0/WSS 10.1.80.105:7000;branch=z9hG4bKe23a1be8",
+		"",
+		"",
+		].join("\r\n")
+
 		URI_FORMAT_TEST = "sip:user:password@host:port;uri-parameters?headers"
 
 		def self.GetHeaderId(name)
@@ -723,6 +927,17 @@ module Reticulum
 		class Host
 			attr_accessor :name
 			attr_accessor :port
+			attr_accessor :ipv6
+
+			def to_s
+				port = ""
+
+				port = ":" + @port unless @port.empty?
+
+				return "[#{@name}]" + port if @ipv6
+
+				return @name + port
+			end
 		end
 
 		def self.ParseHost(data)
@@ -731,16 +946,23 @@ module Reticulum
 			# Try IPv6 first
 			result = /\[([0-9a-f:]+)\][:]*([0-9]*)/.match(data)
 
+			@ipv6 = true
+
 			if result == nil
 				# If it fails try IPv4
 				result = /([^:]+)[:]*([0-9]*)/.match(data)
 
 				return nil unless result
+
+				@ipv6 = false
 			end
 
-			host.name = result[1]
-			host.port = result[2]
+			host.name = ""
+			host.port = ""
 
+			host.name = result[1] if result.length > 0
+			host.port = result[2] if result.length > 1
+# p ["HOST:", host]
 			return host
 		end
 
@@ -750,8 +972,25 @@ module Reticulum
 			attr_accessor :password
 			attr_accessor :host
 			attr_accessor :params
+			attr_accessor :params_string
 			attr_accessor :headers
 			attr_accessor :port
+
+			def to_s
+				params = ""
+				params = ";" + (@params.to_a.map { |x|  x[1]=="" ? x[0] : "#{x[0]}=#{x[1]}"}).join(";") unless @params.empty?
+
+				headers = ""
+
+				headers += "?" + @headers unless @headers.empty?
+
+				creds = ""
+				creds += @user unless @user.empty?
+				creds += ":" + @password unless @password.empty?
+				creds += "@" unless creds.empty?
+
+				return @scheme + ":" + creds + @host.to_s + params + headers
+			end
 		end
 
 		def self.ParseURI(data)
@@ -767,7 +1006,7 @@ module Reticulum
 				uri.user = result[2]
 				uri.password = result[3]
 				hostPort = result[4]
-				uri.params = result[5]
+				uri.params_string = result[5]
 				uri.headers = result[6]
 			else
 				result = /([^:]+):([^;? ]+)([^?]*)(\S*)/.match(data)
@@ -775,10 +1014,14 @@ module Reticulum
 				return nil unless result
 
 				uri.scheme = result[1]
+				uri.user = ""
+				uri.password = ""
 				hostPort = result[2]
-				uri.params = result[3]
+				uri.params_string = result[3]
 				uri.headers = result[4]
 			end
+
+			uri.params = ParseParams(uri.params_string)
 
 			uri.host = ParseHost(hostPort)
 
@@ -787,41 +1030,57 @@ module Reticulum
 			if !uri.host.port.nil? && !uri.host.port.empty?
 				uri.port = uri.host.port.to_i
 			end
-
+# p ["URI:", uri]
 			return uri
 		end
 
 		class Address
 			attr_accessor :auri
 			attr_accessor :params
+			attr_accessor :params_string
 			attr_accessor :dname
 			attr_accessor :uri
-			attr_accessor :tag
+			#attr_accessor :tag
 			attr_accessor :value
+
+			def to_s
+				params = ""
+				params = ";" + (@params.to_a.map { |x|  x[1]=="" ? x[0] : "#{x[0]}=#{x[1]}"}).join(";") unless @params.empty?
+
+                dname = @dname
+                dname = @dname.quote if @dname.include? " "
+
+                return dname + "<" + @uri.to_s + ">" + params
+
+			end
 		end
 
 		def self.ParseAddress(data)
 			address = Address.new
 
-			result = /([^ \t\r\n<]*)[ \t\r\n]*<([^>]+)>(\S*)/.match(data)
+			#result = /([^ \t\r\n<]*)[ \t\r\n]*<([^>]+)>(\S*)/.match(data)
+			result = /[ \t\r\n]*([^\t\r\n<]*)[ \t\r\n]*<([^>]+)>(\S*)/.match(data)
 
 			if result.nil?
 				result = /([^;]+)(\S*)/.match(data)
 
 				return nil unless result
 
+				address.dname = ""
 				address.auri = result[1]
-				address.params = result[2]
+				address.params_string = result[2]
 			else
-				address.dname = result[1]
+				address.dname = result[1].strip.unquote.strip
 				address.auri = result[2]
-				address.params = result[3]
+				address.params_string = result[3]
 			end
+
+			address.params = ParseParams(address.params_string)
 
 			address.uri = ParseURI(address.auri)
 
 			return nil unless address.uri
-
+# p ["ADDRESS:", address]
 			return address
 		end
 
@@ -830,6 +1089,12 @@ module Reticulum
 
 			# needed for Register expiry
 			attr_accessor :expires
+			# attr_accessor :params
+			# attr_accessor :params_string
+
+			def to_s
+				return @address.to_s
+			end
 		end
 
 		def self.ParseContact(data)
@@ -837,14 +1102,17 @@ module Reticulum
 
 			contact.address = ParseAddress(data)
 
-			contact.expires = ParseParam(contact.address.params, "expires")
-
+			contact.expires = contact.address.params["expires"]
 			return contact
 		end
 
 		class CallSequence
 			attr_accessor :method
 			attr_accessor :number
+
+			def to_s
+				return @number.to_s + " " + @method
+			end
 		end
 
 		def self.ParseCSeq(data)
@@ -860,7 +1128,6 @@ module Reticulum
 			return nil if (number.nil? || number.empty?)
 
 			callSequence.number = number.to_i
-
 			return callSequence
 		end
 
@@ -868,6 +1135,13 @@ module Reticulum
 			attr_accessor :type
 			attr_accessor :subtype
 			attr_accessor :params
+			attr_accessor :params_string
+
+			def to_s
+				params = ""
+				params = ";" + (@params.to_a.map { |x|  x[1]=="" ? x[0] : "#{x[0]}=#{x[1]}"}).join(";") unless @params.empty?
+				return @type + "/" + @subtype + params
+			end
 		end
 
 		def self.ParseContentType(data)
@@ -879,7 +1153,9 @@ module Reticulum
 
 			contentType.type = result[2]
 			contentType.subtype = result[3]
-			contentType.params = result[4]
+			contentType.params_string = result[4]
+
+			contentType.params = ParseParams(contentType.params_string)
 
 			return contentType
 		end
@@ -888,25 +1164,28 @@ module Reticulum
 			attr_accessor :transport
 			attr_accessor :sentby
 			attr_accessor :params
+			attr_accessor :params_string
 			attr_accessor :value
 			attr_accessor :host
 			attr_accessor :branch
 			attr_accessor :port
 
 			def to_s
-				return 'Via: SIP/2.0/'+@transport+' '+@sentby+";branch="+@branch#+'\r\n';
+				params = ""
+				params = ";" + (@params.to_a.map { |x|  x[1]=="" ? x[0] : "#{x[0]}=#{x[1]}"}).join(";") unless @params.empty?
+				return 'SIP/2.0/' + @transport + ' ' + @host.to_s + params
 			end
 		end
 
 		def self.ParseVia(data)
 			via = Via.new
 
-			result = /SIP[  \t\r\n]*\/[ \t\r\n]*2.0[ \t\r\n]*\/([ \t\r\n]*[A-Z]+)[ \t\r\n]*([^; \t\r\n]+)[ \t\r\n]*(\S*)/.match(data)
+			result = /SIP[ \t\r\n]*\/[ \t\r\n]*2.0[ \t\r\n]*\/([ \t\r\n]*[A-Z]+)[ \t\r\n]*([^; \t\r\n]+)[ \t\r\n]*(\S*)/.match(data)
 			return nil unless result
 
 			via.transport = result[1]
 			via.sentby = result[2]
-			via.params = result[3]
+			via.params_string = result[3]
 			via.value = data
 
 			via.host = ParseHost(via.sentby)
@@ -917,11 +1196,28 @@ module Reticulum
 				via.port = via.host.port.to_i
 			end
 
-			via.branch = ParseParam(via.params, "branch")
+			via.params = ParseParams(via.params_string)
+			#via.branch = ParseParam(via.params, "branch")
+			via.branch = via.params["branch"]
 
 			return nil unless via.branch
 
 			return via
+		end
+
+		def self.ParseParams(data)
+			data = data.strip
+			temp = data.split(";").map {|x|
+				y = x.split("=")
+				y.push("") if y.length < 2
+				y
+			}
+
+			temp.shift if data[0] == ";"
+
+			params = temp.to_h
+
+			return params
 		end
 
 		def self.ParseParam(data, name)
@@ -930,6 +1226,119 @@ module Reticulum
 			return nil unless result
 
 			return result[1]
+		end
+
+		class Challenge
+			attr_accessor :type, :realm, :domain, :nonce, :opaque, :stale, :algorithm, :qop, :qop_options, :auth_param, :proxy
+
+			def to_s
+				string = @proxy ? 'Proxy-Authenticate' : 'WWW-Authenticate';
+				string += ": "
+				string += 'Digest '
+				string += "realm=\"" + @realm + "\", "
+				string += "qop=\"" + @qop + "\", "
+				string += "algorithm=\"" + @algorithm + "\", "
+				string += "nonce=\"" + @nonce + "\", "
+				string += "opaque=\"" + @opaque + "\""
+
+				return string
+			end
+		end
+
+		def self.ParseAuthenticate(data)
+			challenge = Challenge.new
+			# Proxy-Authenticate: Digest realm="atlanta.example.com", qop="auth",
+			# nonce="f84f1cec41e6cbe5aea9c8e88d359",
+			# opaque="", stale=FALSE, algorithm=MD5
+			pos = data.index(" ")
+			challenge.type = data[0...pos]
+
+			data[pos+1..-1].split(",").each {|x|
+				els = x.strip.split("=")
+				#puts  test[0], "->", test[1]
+				val = els[1].unquote
+
+				case els[0]
+					when "realm"
+						challenge.realm = val
+					when "domain"
+						challenge.domain = val
+					when "nonce"
+						challenge.nonce = val
+					when "opaque"
+						challenge.opaque = val
+					when "stale"
+						challenge.stale = val
+					when "algorithm"
+						challenge.algorithm = val
+					when "qop"
+						challenge.qop = val
+					when "qop-options"
+						challenge.qop_options = val
+					when "auth-param"
+						challenge.auth_param = val
+				end
+			}
+
+			return challenge
+		end
+
+		class Auth
+			attr_accessor :type, :realm, :nonce, :response, :username, :uri, :nc, :cnonce, :qop, :proxy, :opaque
+
+			def to_s
+				string = @proxy ? "Proxy-Authorization" : "Authorization"
+				string += ": " + @type + " ";
+		        string += "username=\"" + @username + "\", "
+		        string += "realm=\"" + @realm + "\", "
+		        string += "nonce=\"" + @nonce + "\", "
+		        string += "uri=\"" + @uri + "\", "
+		        string += "qop=\"" + @qop + "\", "
+		        string += "nc=\"" + @nc + "\", "
+		        string += "cnonce=\"" + @cnonce + "\", "
+		        string += "response=\"" + @response + "\", "
+		        string += "opaque=\"" + @opaque + "\", "
+			end
+		end
+
+		def self.ParseAuthorization(data)
+			auth = Auth.new
+			# Authorization: Digest username="bob", realm="atlanta.example.com"
+			# nonce="ea9c8e88df84f1cec4341ae6cbe5a359", opaque="",
+			# uri="sips:ss2.biloxi.example.com",
+			# response="dfe56131d1958046689d83306477ecc"
+
+			pos = data.index(" ")
+			auth.type = data[0...pos]
+
+			data[pos+1..-1].split(",").each {|x|
+				els = x.strip.split("=")
+
+				val = els[1].unquote
+
+				case els[0]
+					when "realm"
+			 			auth.realm = val
+					when "nonce"
+			 			auth.nonce = val
+					when "response"
+			 			auth.response = val
+					when "username"
+			 			auth.username = val
+					when "uri"
+			 			auth.uri = val
+					when "nc"
+			 			auth.nc = val
+					when "cnonce"
+			 			auth.cnonce = val
+					when "qop"
+			 			auth.qop = val
+					when "opaque"
+						auth.opaque = val
+				end
+			}
+
+			return auth
 		end
 
 		def self.Parse(data)
@@ -941,7 +1350,7 @@ module Reticulum
 
 			return nil unless result
 
-			message.tag = Utils::token(10, Utils::TOKEN_NUMERIC_16)
+			message.tag = Utils.genhex(10)
 			message.raw = data
 			message.isRequest = false
 
@@ -954,11 +1363,13 @@ module Reticulum
 				message.remoteURI = result[2]
 				message.version = result[3]
 
-				#message.uri = ParseURI(result[2])
-				message.uri = ParseAddress(result[2])
+				message.uri = ParseURI(result[2])
+				#message.uri = ParseAddress(result[2])
 
 				return nil if message.uri.nil?
 			else
+p ["PARSER TOP", result]
+
 				message.version = result[1]
 				message.statusCode = result[2].to_i
 				message.reason = result[3]

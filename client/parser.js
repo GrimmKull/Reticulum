@@ -413,56 +413,24 @@ var sipmsg6 = [
 "",
 ].join("\r\n");
 
+var sipmsg7 = [
+"INVITE sip:bob@u2.biloxi.com SIP/2.0",
+"Record-Route: <sip:p2.biloxi.com;lr>",
+"Record-Route: <sip:p1.atlanta.com;lr>",
+"From: \"Alice Ana\" <sip:alice@atlanta.com>;tag=1354385",
+"To: \"Bob\" <sip:bob@biloxi.com>",
+"Call-ID: xyz",
+"CSeq: 1 INVITE",
+"Contact: <sip:alice@u1.atlanta.com>",
+"",
+"",
+].join("\r\n");
+
 Reticulum.Parser.TestFormatURI = "sip:user:password@host:port;uri-parameters?headers";
 
-/*var URI = function()
-{
-	this.host = host;
-	this.addressFamily = af;
-};*/
-
-//uint32_t hash_joaat_ci(const char *str, size_t len)
-/*Reticulum.Parser.getHeaderHashValue = function(name) {
-	var temp = name.toLowerCase();
-	var hash = 0;
-	var i;
-
-	for (i = 0; i < name.length; i++) {
-		hash += temp.charCodeAt(i);
-		console.log(hash);
-		hash += (hash << 10);
-		console.log(hash, "<< 10");
-		hash ^= (hash >> 6);
-		console.log(hash, ">> 6");
-	}
-	hash += (hash << 3);
-	console.log(hash, "<< 3");
-	hash ^= (hash >> 11);
-	console.log(hash, ">> 11");
-	hash += (hash << 15);
-	console.log(hash, "<< 15");
-
-	return hash;
-};*/
-
-//static enum sip_hdrid hdr_hash(const struct pl *name)
 Reticulum.Parser.getHeaderId = function(name) {
 	if (name.length === 0)
 		return this.Enum.SIP_HDR_NONE;
-
-	/*if (name.length > 1) {
-		switch (name[0]) {
-		case 'x':
-		case 'X':
-			if (name[1] === '-')
-				return this.Enum.SIP_HDR_NONE;
-
-			//@fallthrough@
-
-		default:
-			return (this.getHeaderHashValue(name) & 0xfff);
-		}
-	}*/
 
 	var id = Reticulum.Parser.Hashes.Headers[name];
 
@@ -497,7 +465,6 @@ Reticulum.Parser.getHeaderId = function(name) {
 };
 
 
-//static inline bool hdr_comma_separated(enum sip_hdrid id)
 Reticulum.Parser.isCommaSeparatedHeader = function(id) {
 	switch (id) {
 
@@ -551,13 +518,13 @@ Reticulum.Parser.isCommaSeparatedHeader = function(id) {
 };
 
 Reticulum.Parser.parseHost = function(data) {
-	var host = {};
+	var host = new Reticulum.SIP.Host();
 
 	/* Try IPv6 first */
-	//if (!re_regex(hostport->p, hostport->l, "\\[[0-9a-f:]+\\][:]*[0-9]*", host, NULL, port))
-	//	return 0;
 	var re = /\[([0-9a-f:]+)\][:]*([0-9]*)/;
 	var result = re.exec(data);
+
+	host.isipv6 = true;
 
 	if (result === null)
 	{
@@ -568,40 +535,21 @@ Reticulum.Parser.parseHost = function(data) {
 		{
 			return null;
 		}
+
+		host.isipv6 = false;
 	}
 
 	host.name = result[1];
 	host.port = result[2];
 
 	return host;
-
-	/* Then non-IPv6 host */
-	//return re_regex(hostport->p, hostport->l, "[^:]+[:]*[0-9]*", host, NULL, port);
 };
 
-//int uri_decode(struct uri *uri, const struct pl *pl)
 Reticulum.Parser.parseURI = function(data) {
-	var uri = {};
-	/*struct sa addr;
-	struct pl port = PL_INIT;
-	struct pl hostport;
-	int err;
+	var uri = new Reticulum.SIP.URI();
 
-	if (!uri || !pl)
-		return EINVAL;*/
-
-	//memset(uri, 0, sizeof(*uri));
 	var re = /([^:]+):([^@:]*)[:]*([^@]*)@([^;? ]+)([^?]*)([^]*)/;
 	var result = re.exec(data);
-//	if (0 == re_regex(pl->p, pl->l, "[^:]+:[^@:]*[:]*[^@]*@[^;? ]+[^?]*[^]*", &uri->scheme, &uri->user, NULL, &uri->password, &hostport, &uri->params, &uri->headers)) {
-
-	/*if (result === null)
-		return null;
-
-	console.log(result);
-
-	if (result.length < 4)
-		return null;*/
 
 	var hostPort = "";
 
@@ -613,7 +561,7 @@ Reticulum.Parser.parseURI = function(data) {
 		uri.user = result[2];
 		uri.password = result[3];
 		hostPort = result[4];
-		uri.params = result[5];
+		uri._params_string = result[5];
 		uri.headers = result[6];
 
 		uri.host = this.parseHost(hostPort);
@@ -632,7 +580,7 @@ Reticulum.Parser.parseURI = function(data) {
 
 		uri.scheme = result[1];
 		hostPort = result[2];
-		uri.params = result[3];
+		uri._params_string = result[3];
 		uri.headers = result[4];
 
 		uri.host = this.parseHost(hostPort);
@@ -642,31 +590,9 @@ Reticulum.Parser.parseURI = function(data) {
 	}
 
 	if (uri.host.port && uri.host.port !== "")
-			uri.port = parseInt(uri.host.port);
-	/*if (0 == decode_hostport(&hostport, &uri->host, &port))
-		goto out;
+		uri.port = parseInt(uri.host.port);
 
-	//memset(uri, 0, sizeof(*uri));
-	err = re_regex(pl->p, pl->l, "[^:]+:[^;? ]+[^?]*[^]*", &uri->scheme, &hostport, &uri->params, &uri->headers);
-	if (0 == err) {
-		err = decode_hostport(&hostport, &uri->host, &port);
-		if (0 == err)
-			goto out;
-	}
-
-	return err;
-
- out:
-	// Cache host address family
-	if (0 == sa_set(&addr, &uri->host, 0))
-		uri->af = sa_af(&addr);
-	else
-		uri->af = AF_UNSPEC;
-
-	if (pl_isset(&port))
-		uri->port = (uint16_t)pl_u32(&port);
-
-	return 0;*/
+	uri.params = this.parseParams(uri._params_string);
 
 	uri.raw = data;
 
@@ -674,16 +600,10 @@ Reticulum.Parser.parseURI = function(data) {
 };
 
 Reticulum.Parser.parseAddress = function(data) {
-	var address = {};
-	/*int err;
+	var address = new Reticulum.SIP.Address();
 
-	if (!addr || !pl)
-		return EINVAL;
-
-	memset(addr, 0, sizeof(*addr));*/
-
-	//var re = /([~ \t\r\n<]*)[ \t\r\n]*<([^>]+)>([^]*)/;
-	var re = /([^ \t\r\n<]*)[ \t\r\n]*<([^>]+)>([^]*)/;
+	//var re = /([^ \t\r\n<]*)[ \t\r\n]*<([^>]+)>([^]*)/;
+	var re = /[ \t\r\n]*([^\t\r\n<]*)[ \t\r\n]*<([^>]+)>([^]*)/;
 	var result = re.exec(data);
 
 	address.value = data;
@@ -699,55 +619,38 @@ Reticulum.Parser.parseAddress = function(data) {
 		}
 
 		address.auri = result[1];
-		address.params = result[2];
+		address._params_string = result[2];
 	}
 	else
 	{
-		address.dname = result[1];
+		address.dname = Utils.unquote(result[1].trim()).trim();
 		address.auri = result[2];
-		address.params = result[3];
+		address._params_string = result[3];
 	}
 
-	//if (0 == re_regex(pl->p, pl->l, "[~ \t\r\n<]*[ \t\r\n]*<[^>]+>[^]*", &addr->dname, NULL, &addr->auri, &addr->params)) {
-
-		/*if (!addr->dname.l)
-			addr->dname.p = NULL;
-
-		if (!addr->params.l)
-			addr->params.p = NULL;*/
-	//}
-	//else {
-		/*memset(addr, 0, sizeof(*addr));
-
-		if (re_regex(pl->p, pl->l, "[^;]+[^]*", &addr->auri, &addr->params))
-			return EBADMSG;*/
-	//}
-
-	/*err = uri_decode(&addr->uri, &addr->auri);
-	if (err)
-		memset(addr, 0, sizeof(*addr));*/
 	address.uri = this.parseURI(address.auri);
-//console.log("address",address);
+
 	if (address.uri === null)
 		return null;
 
-	//console.log("REZ:",address);
+	address.params = this.parseParams(address._params_string);
+
+
 	return address;
 };
 
+Reticulum.Parser.parseContact = function(data) {
+	var contact = new Reticulum.SIP.Contact();
+
+	contact.address = this.parseAddress(data);
+
+	contact.expires = contact.address.params.expires;
+
+	return contact;
+};
+
 Reticulum.Parser.parseCSeq = function(data) {
-	var callSequence = {};
-	//int sip_cseq_decode(struct sip_cseq *cseq, const struct pl *pl)
-//{
-	/*struct pl num;
-	int err;
-
-	if (!cseq || !pl)
-		return EINVAL;*/
-
-	//err = re_regex(pl->p, pl->l, "[0-9]+[ \t\r\n]+[^ \t\r\n]+", &num, NULL, &cseq->met);
-	/*if (err)
-		return err;*/
+	var callSequence = new Reticulum.SIP.CSeq();
 
 	var re = /([0-9]+)[ \t\r\n]+([^ \t\r\n]+)/;
 	var result = re.exec(data);
@@ -763,70 +666,36 @@ Reticulum.Parser.parseCSeq = function(data) {
 
 	callSequence.number = parseInt(number);
 
-	//cseq->num = pl_u32(&num);
-
-	//return 0;
-//}
 	return callSequence;
 };
 
 Reticulum.Parser.parseContentType = function(data) {
-//	int msg_ctype_decode(struct msg_ctype *ctype, const struct pl *pl)
-//{
-	var contentType = {};
-        /*struct pl ws;
-
-        if (!ctype || !pl)
-                return EINVAL;*/
+	var contentType = new Reticulum.SIP.ContentType();
 
 	var re = /([ \t\r\n]*)([^ \t\r\n;\/]+)[ \t\r\n]*\/[ \t\r\n]*([^ \t\r\n;]+)([^]*)/;
 	var result = re.exec(data);
 
 	contentType.type = result[2];
 	contentType.subtype = result[3];
-	contentType.params = result[4];
+	contentType._params_string = result[4];
 
-        //if (re_regex(pl->p, pl->l, "[ \t\r\n]*[^ \t\r\n;/]+[ \t\r\n]*/[ \t\r\n]*[^ \t\r\n;]+[^]*", &ws, &ctype->type, NULL, NULL, &ctype->subtype, &ctype->params))
-            //return EBADMSG;
+	contentType.params = this.parseParams(contentType._params_string);
 
-        /*if (ws.p != pl->p)
-                return EBADMSG;
-
-        return 0;*/
-//}
 	return contentType;
 };
 
 Reticulum.Parser.parseVia = function(data) {
-	var via = {};
-	/*struct pl transp, host, port;
-	int err;
+	var via = new Reticulum.SIP.Via();
 
-	if (!via || !pl)
-		return EINVAL;*/
 	var re = /SIP[  \t\r\n]*\/[ \t\r\n]*2.0[ \t\r\n]*\/([ \t\r\n]*[A-Z]+)[ \t\r\n]*([^; \t\r\n]+)[ \t\r\n]*([^]*)/;
 	var result = re.exec(data);
 
 	if (result === null)
 		return null;
 
-
-	//err = re_regex(pl->p, pl->l, "SIP[  \t\r\n]*/[ \t\r\n]*2.0[ \t\r\n]*/[ \t\r\n]*[A-Z]+[ \t\r\n]*[^; \t\r\n]+[ \t\r\n]*[^]*", NULL, NULL, NULL, NULL, &transp, NULL, &via->sentby, NULL, &via->params);
-	/*if (err)
-		return err;
-
-	if (!pl_strcmp(&transp, "TCP"))
-		via->tp = SIP_TRANSP_TCP;
-	else if (!pl_strcmp(&transp, "TLS"))
-		via->tp = SIP_TRANSP_TLS;
-	else if (!pl_strcmp(&transp, "UDP"))
-		via->tp = SIP_TRANSP_UDP;
-	else
-		via->tp = SIP_TRANSP_NONE;*/
-//console.log("[parse via]", result);
 	via.transport = result[1];
 	via.sentby = result[2];
-	via.params = result[3];
+	via._params_string = result[3];
 	via.value = data;
 
 	via.host = this.parseHost(via.sentby);
@@ -837,21 +706,8 @@ Reticulum.Parser.parseVia = function(data) {
 	if (via.host.port && via.host.port !== "")
 		via.port = parseInt(via.host.port);
 
-	//err = decode_hostport(&via->sentby, &host, &port);
-	/*if (err)
-		return err;*/
-
-	//sa_init(&via->addr, AF_INET);
-
-	//(void)sa_set(&via->addr, &host, 0);
-
-	/*if (pl_isset(&port))
-		sa_set_port(&via->addr, pl_u32(&port));*/
-
-	//via->val = *pl;
-
-	//return msg_param_decode(&via->params, "branch", &via->branch);
-	via.branch = this.parseParam(via.params, "branch");
+	via.params = this.parseParams(via._params_string);
+	via.branch = via.params.branch;
 
 	if (via.branch === null)
 		return null;
@@ -859,13 +715,35 @@ Reticulum.Parser.parseVia = function(data) {
 	return via;
 };
 
+Reticulum.Parser.parseParams = function(data) {
+	var params = {};
+
+	data.trim().split(";").forEach(function(x) {
+		var y = x.trim();
+		if (y !== "") {
+			y = y.split("=");
+
+			if (y.length < 2) y.push("");
+
+			params[y[0]] = y[1];
+		}
+	});
+
+	return params;
+};
+
+Reticulum.Parser.stringifyParams = function(params) {
+	var string = "";
+
+	for(var key in params) {
+		string += ";" + key;
+		if (params[key] !== "") string += "=" + params[key];
+	}
+
+	return string;
+};
+
 Reticulum.Parser.parseParam = function(data, name) {
-	/*char expr[128];
-    struct pl v;
-
-	if (!pl || !name || !val)
-		return EINVAL;*/
-
 	var restr = ";[ \t\r\n]*" + name + "[ \t\r\n]*=[ \t\r\n]*([^ \t\r\n;]+)";
 
 	var re = new RegExp(restr);
@@ -873,20 +751,12 @@ Reticulum.Parser.parseParam = function(data, name) {
 
 	if (result === null)
 		return null;
-	/*(void)re_snprintf(expr, sizeof(expr), ";[ \t\r\n]*%s[ \t\r\n]*=[ \t\r\n]*[~ \t\r\n;]+", name);
 
-
-	if (re_regex(pl->p, pl->l, expr, NULL, NULL, NULL, &v))
-		return ENOENT;
-
-	*val = v;*/
-
-	//return 0;
 	return result[1];
 };
 
-Reticulum.Parser.parseAuthenticate = function(data, proxy) {
-	var auth = {};
+Reticulum.Parser.parseAuthenticate = function(data) {
+	var challenge = {};
 	// Proxy-Authenticate: Digest realm="atlanta.example.com", qop="auth",
 	// nonce="f84f1cec41e6cbe5aea9c8e88d359",
 	// opaque="", stale=FALSE, algorithm=MD5
@@ -894,37 +764,42 @@ Reticulum.Parser.parseAuthenticate = function(data, proxy) {
 	challenge.type = data.substr(0, pos);
 
 	data.substr(pos+1).split(",").forEach(function(el) {
-		var els = x.trim().split("=");
+		var els = el.trim().split("=");
+
+		var val = Utils.unquote(els[1]);
 
 		switch (els[0]) {
 			case "realm":
-				challenge.realm = els[1];
+				challenge.realm = val;
 				break;
 			case "domain":
-				challenge.domain = els[1];
+				challenge.domain = val;
 				break;
 			case "nonce":
-				challenge.nonce = els[1];
+				challenge.nonce = val;
 				break;
 			case "opaque":
-				challenge.opaque = els[1];
+				challenge.opaque = val;
 				break;
 			case "stale":
-				challenge.stale = els[1];
+				challenge.stale = val;
 				break;
 			case "algorithm":
-				challenge.algorithm = els[1];
+				challenge.algorithm = val;
+				break;
+			case "qop":
+				challenge.qop = val;
 				break;
 			case "qop-options":
-				challenge.qop_options = els[1];
+				challenge.qop_options = val;
 				break;
 			case "auth-param":
-				challenge.auth_param = els[1];
+				challenge.auth_param = val;
 				break;
 		}
 	});
 
-	return auth;
+	return challenge;
 };
 
 Reticulum.Parser.parseAuthorization = function(data, proxy) {
@@ -938,32 +813,34 @@ Reticulum.Parser.parseAuthorization = function(data, proxy) {
 	auth.type = data.substr(0, pos);
 
 	data.substr(pos+1).split(",").forEach(function(el) {
-		var els = x.trim().split("=");
+		var els = el.trim().split("=");
+
+		var val = Utils.unquote(els[1]);
 
 		switch (els[0]) {
 			case "realm":
-				auth.realm = els[1];
+				auth.realm = val;
 				break;
 			case "nonce":
-				auth.nonce = els[1];
+				auth.nonce = val;
 				break;
 			case "response":
-				auth.response = els[1];
+				auth.response = val;
 				break;
 			case "username":
-				auth.username = els[1];
+				auth.username = val;
 				break;
 			case "uri":
-				auth.uri = els[1];
+				auth.uri = val;
 				break;
 			case "nc":
-				auth.nc = els[1];
+				auth.nc = val;
 				break;
 			case "cnonce":
-				auth.cnonce = els[1];
+				auth.cnonce = val;
 				break;
 			case "qop":
-				auth.qop = els[1];
+				auth.qop = val;
 				break;
 		}
 	});
@@ -971,27 +848,8 @@ Reticulum.Parser.parseAuthorization = function(data, proxy) {
 	return auth;
 };
 
-//int sip_msg_decode(struct sip_msg **msgp, struct mbuf *mb)
 Reticulum.Parser.parse = function(data) {
 	var message = new Reticulum.SIP.Message();
-	//struct pl x, y, z, e, name;
-	//const char *p, *v, *cv;
-	//struct sip_msg *msg;
-	//bool comsep, quote;
-	//enum sip_hdrid id = SIP_HDR_NONE;
-	//uint32_t ws, lf;
-	//size_t l;
-	//int err;
-
-	//if (!msgp || !mb)
-	//	return EINVAL;
-
-	//p = (const char *)mbuf_buf(mb);
-	//l = mbuf_get_left(mb);
-
-	/*if (re_regex(p, l, "[^ \t\r\n]+ [^ \t\r\n]+ [^\r\n]*[\r]*[\n]1",
-		     &x, &y, &z, NULL, &e) || x.p != (char *)mbuf_buf(mb))
-		return (l > STARTLINE_MAX) ? EBADMSG : ENODATA;*/
 
 	var buffer = data;
 
@@ -1002,18 +860,14 @@ Reticulum.Parser.parse = function(data) {
 		return null;
 
 	message.tag = Utils.token(10, Utils.TOKEN_NUMERIC_16);
-	//msg->mb  = mem_ref(mb);
 	message.raw = data;
-	//msg->req = (0 == pl_strcmp(&z, "SIP/2.0"));
 	message.isRequest = false;
+
 	if (result.length < 4)
 		return null;
 
 	if(result[3] == "SIP/2.0")
 		message.isRequest = true;
-
-
-	//buffer.replace(result[0],"");
 
 	if (message.isRequest) {
 		message.method = result[1];
@@ -1021,29 +875,22 @@ Reticulum.Parser.parse = function(data) {
 		message.version = result[3];
 
 		message.uri = this.parseURI(result[2]);
-		//if (uri_decode(&msg->uri, &y)) {
+
 		if (!message.uri)
 			return null;
-			/*err = EBADMSG;
-			goto out;*/
+
 	} else {
 		message.version = result[1];
-		message.statusCode = parseInt(result[2]);//pl_u32(&y);
+		message.statusCode = parseInt(result[2]);
 		message.reason = result[3];
 
 		if(!message.statusCode)
 			return null;
-		/*if (!msg->scode) {
-			err = EBADMSG;
-			goto out;
-		}*/
 	}
 
 	var p = 0;//result[0].length; // position
 	var l = buffer.length; // length
 
-	/*l -= e.p + e.l - p;
-	p = e.p + e.l;*/
 	l -= result[0].length;
 	p = result[0].length;
 
@@ -1057,7 +904,6 @@ Reticulum.Parser.parse = function(data) {
 	var id = this.Enum.SIP_HDR_NONE;
 
 	for (; l > 0; p++, l--) {
-		//console.log(buffer[p]);
 		switch (buffer[p]) {
 
 		case ' ':
@@ -1078,23 +924,16 @@ Reticulum.Parser.parse = function(data) {
 
 			++p; --l; // eoh
 
-			// @fallthrough@
+			// FALLTHROUGH
 
 		default:
 			if (lf || (buffer[p] == ',' && comsep && !quote)) {
 
 				if (!name.l) {
-					/*err = EBADMSG;
-					goto out;*/
-					//console.log("return null '!name.l'", name.l);
 					return null;
 				}
 
-				//err = hdr_add(msg, &name, id, cv ? cv : p, cv ? p - cv - ws : 0, true, cv == v && lf);
-				//console.log("add header", buffer.substr(name.p, name.l), id, buffer.substr(cv ? cv : p, cv ? p - cv - ws : 0));
 				message.addHeader(buffer.substr(name.p, name.l), id, buffer.substr(cv ? cv : p, cv ? p - cv - ws : 0));
-				/*if (err)
-					goto out;*/
 
 				if (!lf) { // comma separated
 					cv = null;
@@ -1102,21 +941,11 @@ Reticulum.Parser.parse = function(data) {
 				}
 
 				if (cv != v) {
-					//err = hdr_add(msg, &name, id, v ? v : p, v ? p - v - ws : 0, false, true);
-					//console.log("add header", name, id);
 					message.addHeader(buffer.substr(name.p, name.l), id, buffer.substr(v ? v : p, v ? p - v - ws : 0));
-					/*if (err)
-						goto out;*/
 				}
 
 				if (lf > 1) { // eoh
-					/*err = 0;
-					goto out;*/
-					//console.log("return null 'lf > 1'", lf);
-					//mb->pos = mb->end - l;
 					message.pos = p;
-					//console.log(message);
-					//console.log(buffer.substr(p,l), p, l);
 					return message;
 				}
 
@@ -1138,20 +967,15 @@ Reticulum.Parser.parse = function(data) {
 					break;
 				}
 
-				//name.l = MAX((int)(p - name.p - ws), 0);
 				name.l = Math.max((p - name.p - ws), 0);
 
 				if (!name.l) {
-					/*err = EBADMSG;
-					goto out;*/
-					//console.log("return null '!name.l'", name.l);
 					return null;
 				}
 
-				//id = hdr_hash(&name);
 				id = this.getHeaderId(buffer.substr(name.p, name.l));
 				comsep = this.isCommaSeparatedHeader(id);
-				//console.log("getHeaderId from name", buffer.substr(name.p, name.l), id, comsep);
+
 				break;
 			}
 
@@ -1172,20 +996,6 @@ Reticulum.Parser.parse = function(data) {
 		}
 	}
 
-	/*err = ENODATA;
-
- out:
-	if (err)
-		mem_deref(msg);
-	else {
-		*msgp = msg;
-		mb->pos = mb->end - l;
-	}
-
-	return err;*/
-
-	//console.log(message);
-	//console.log(buffer.substr(p,l), p, l);
 	return message;
 };
 

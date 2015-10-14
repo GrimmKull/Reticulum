@@ -1,0 +1,13 @@
+Tasks.md
+Masters.md
+
+.imdone
+Gemfile.lock
+
+client/bob.html
+client/sipml5.html
+client/sipml5call.html
+client/sipml5.min.js
+
+tmp/
+debug/

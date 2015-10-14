@@ -1,9 +1,11 @@
 var signalingChannel = createSignalingChannel();
 var pc;
+
+// To speed up things use only one STUN server
 var configuration = {
-    'iceServers': [{
+    'iceServers': [/*{
         'url': 'stun:stun.services.mozilla.com'
-    }, {
+    }, */{
         'url': 'stun:stun.l.google.com:19302'
     }]
 };

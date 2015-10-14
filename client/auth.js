@@ -1,8 +1,7 @@
 var Digest = function() {};
 
-
-
-Digest.prototype.createAuthorization = function (challenge, username, password, uri=None, method=None, entityBody=None, context=None) {
+//Digest.prototype.createAuthorization = function (challenge, username, password, uri, method, entityBody, context) {
+Digest.createAuthorization = function (response, request, context) {
     /*Build the Authorization header for this challenge. The challenge represents the
     WWW-Authenticate header's value and the function returns the Authorization
     header's value. The context (dict) is used to save cnonce and nonceCount
@@ -20,37 +19,63 @@ Digest.prototype.createAuthorization = function (challenge, username, password, 
     /*cr['password']   = password
     cr['username']   = username*/
 
-
-
-    var type = "basic"; //"digest"
-
     // @implements RFC2617 P5L20-P5L41
-    if (type.toLowerCase() == "basic") {
-        return type + " " + Basic(username, password);
+    if (response.challenge.type.toLowerCase() == "basic") {
+       return response.challenge.type + " " + Basic(username, password);
     // @implements RFC2617 P6L46-P7L5
-    } else if (type.toLowerCase() == "digest") {
-        for n,v in map(lambda x: x.strip().split('='), rest.split(',') if rest else []):
-            ch[n.lower().strip()] = _unquote(v.strip())
-        // TODO: doesn't work if embedded ',' in value, e.g., qop="auth,auth-int"
+    } else if (response.challenge.type.toLowerCase() == "digest") {
         // @implements RFC2617 P8L3-P8L25
-        for y in filter(lambda x: x in ch, ['username', 'realm', 'nonce', 'opaque', 'algorithm']):
+        /*for y in filter(lambda x: x in ch, ['username', 'realm', 'nonce', 'opaque', 'algorithm']):
             cr[y] = ch[y]
         cr['uri']        = uri
-        cr['httpMethod'] = method
-        if 'qop' in ch:
+        cr['httpMethod'] = method*/
+
+        /*if 'qop' in ch:
             if context and 'cnonce' in context:
                 cnonce, nc = context['cnonce'], context['nc'] + 1
             else:
                 cnonce, nc = H(str(randint(0, 2**31))), 1
             if context:
                 context['cnonce'], context['nc'] = cnonce, nc
-            cr['qop'], cr['cnonce'], cr['nc'] = 'auth', cnonce, '%08x'% nc
+            cr['qop'], cr['cnonce'], cr['nc'] = 'auth', cnonce, '%08x'% nc*/
 
-        # @implements RFC2617 P11L11-P11L30
-        cr['response'] = digest(cr)
-        items = sorted(filter(lambda x: x not in ['name', 'authMethod', 'value', 'httpMethod', 'entityBody', 'password'], cr))
-        return authMethod + ' ' + ','.join(map(lambda y: '%s=%s'%(y, (cr[y] if y == 'qop' or y == 'nc' else _quote(cr[y]))), items))
+		var uri = request.uri.raw;
+		// console.log("[URI]", request.uri)
+        // NOTE: create new cnonce and increment nc
+        var cnonce = Utils.token(8, Utils.TOKEN_NUMERIC_16);
+        var ncprefix = "";
+// console.log("create Auth", context);
+		// NOTE: add cnonce to context
+		context.cnonce = cnonce;
+		//context.nc = nc;
+		context.nc++;
+
+        for (var i=0; i<8-(context.nc + "").length; i++) {
+            ncprefix += "0";
+        }
+
+        // @implements RFC2617 P11L11-P11L30
+        //cr['response'] = digest(cr)
+        var ha1 = Utils.md5(context.user + ":" + context.realm + ":" + context.password );
+        var ha2 = Utils.md5(request.method + ":" + uri);
+
+        var resp = Utils.md5(ha1 + ":" + response.challenge.nonce + ":" + ncprefix + context.nc + ":" + context.cnonce + ":" + response.challenge.qop + ":" + ha2);
+
+        var value = response.challenge.type + " ";
+        value += "username=\"" + context.user + "\", ";
+        value += "realm=\"" + context.realm + "\", ";
+        value += "nonce=\"" + response.challenge.nonce + "\", ";
+        value += "uri=\"" + uri + "\", ";
+        value += "qop=\"" + response.challenge.qop + "\", ";
+        value += "nc=\"" + ncprefix + context.nc + "\", ";
+        value += "cnonce=\"" + context.cnonce + "\", ";
+        value += "response=\"" + resp + "\", ";
+        value += "opaque=\"" + response.challenge.opaque + "\", ";
+
+        return value;
     } else {
-        //raise ValueError, 'Invalid auth method -- ' + authMethod
+        console.log('Error. Invalid auth method ' + response.challenge.type);
     }
+
+    return null;
 };
