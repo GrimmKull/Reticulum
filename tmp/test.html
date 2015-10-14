@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title></title>
+
+    <!-- Bootstrap -->
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.2/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="../client/utils.js" charset="utf-8"></script>
+    <script>
+        //Utils.md5("sanjin") === "16bf688751f6ed077e982cbb5382f07c"
+        //var now = Date.now()/1000 | 0;
+        //var nonce = btoa(now + " " + Utils.md5(now + ":" + Utils.token(10, Utils.TOKEN_NUMERIC_16)));
+
+        // sequentialSearch(transaction.createClientTransaction.bind(transaction), transport.open.bind(transport), addresses, message, callback || function() {});
+        var onresponse = null;
+        var lastStatusCode = null;
+
+        function seqSearch() {
+            /*if(rq.method !== 'CANCEL') {
+                if(!rq.headers.via) rq.headers.via = [];
+                rq.headers.via.unshift({params:{}});
+            }*/
+
+            next();
+        }
+
+        function next() {
+            onresponse = searching;
+
+            if(addresses.length > 0) {
+              try {
+                var address = addresses.shift();
+                var client = transaction(connect(address, function(err) {
+                  if(err) {
+                    console.log("err: ", err);
+                  }
+                  client.message(makeResponse(rq, 503));
+                }), rq, function() { onresponse.apply(null, arguments); });
+              }
+              catch(e) {
+                onresponse(address.local ? makeResponse(rq, 430) : makeResponse(rq, 503));
+              }
+            }
+            else {
+              onresponse = callback;
+              onresponse(makeResponse(rq, lastStatusCode || 404));
+            }
+        }
+
+        function searching(response) {
+            lastStatusCode = rs.status;
+            if(rs.status === 503)
+              return next();
+            else if(rs.status > 100)
+              onresponse = callback;
+
+            callback(rs);
+        }
+    </script>
+  </body>
+</html>

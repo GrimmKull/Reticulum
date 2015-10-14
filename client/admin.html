@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+
+	<script type="text/javascript" src="utils.js"></script>
+	<script type="text/javascript" src="parser.js"></script>
+	<script type="text/javascript" src="media2.js"></script>
+	<script type="text/javascript" src="transport.js"></script>
+	<script type="text/javascript" src="sip.js"></script>
+	<script type="text/javascript" src="ua.js"></script>
+	<script type="text/javascript" src="rtculum.js"></script>
+
+	<link rel="stylesheet" href="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.blue_grey-red.min.css">
+	<script src="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.min.js"></script>
+	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+
+    <script src="raphael-min.js"></script>
+    <script src="underscore-min.js"></script>
+    <script src="sequence-diagram-min.js"></script>
+
+	<style type="text/css">
+.mdl-card__title {
+	padding: 0;
+	position: relative;
+}
+
+button {
+	float: right;
+	top: 16px;
+	margin: 0 5px !important;
+}
+
+.mdl-mini-footer--social-btn {
+	background: none;
+	color: #cecece;
+}
+
+.fa {
+	font-size: 25px;
+}
+
+.grid {
+	max-width: 900px;
+}
+
+.list {
+    padding: 0;
+}
+
+.list button {
+    width: 100%;
+    margin: 0 !important;
+}
+	</style>
+</head>
+<body>
+	<div class="mdl-layout__container"></div>
+		<div class="mdl-layout">
+			<header class="mdl-layout__header">
+				<div class="mdl-layout-icon"></div>
+				<div class="mdl-layout__header-row">
+					<span class="mdl-layout-title">Reticulum Admin</span>
+					<div class="mdl-layout-spacer"></div>
+					<nav class="mdl-navigation">
+						<a class="mdl-navigation__link" href="#">Help</a>
+						<span class="mdl-layout-title">Disconnected</span>
+					</nav>
+				</div>
+			</header>
+
+			<main class="mdl-layout__content">
+                <div class="mdl-tabs mdl-js-tabs mdl-js-ripple-effect">
+                    <div class="mdl-tabs__tab-bar">
+                        <a href="#registrations" class="mdl-tabs__tab is-active">Registrations</a>
+                        <a href="#calls" class="mdl-tabs__tab">Calls</a>
+                        <a href="#transactions" class="mdl-tabs__tab">Transactions</a>
+                        <a href="#dialogs" class="mdl-tabs__tab">Dialogs</a>
+                    </div>
+
+                    <div class="mdl-tabs__panel is-active" id="registrations">
+                        <div class="grid mdl-grid">
+                            <div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--2dp">
+                                <ul class="list">
+                                    <button class="mdl-button mdl-js-button">Tywin</button>
+                                    <button class="mdl-button mdl-js-button">Cersei</button>
+                                    <button class="mdl-button mdl-js-button">Jamie</button>
+                                    <button class="mdl-button mdl-js-button">Tyrion</button>
+                                </ul>
+                            </div>
+                            <div class="mdl-card mdl-cell mdl-cell--9-col mdl-shadow--2dp">
+                                <div class="mdl-card__title"></div>
+
+                                <div class="mdl-card__actions mdl-card--border">
+                                    <div id="diagram1"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mdl-tabs__panel" id="calls">
+                        <div class="grid mdl-grid">
+                            <div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--2dp">
+                                <ul class="list">
+                                    <button class="mdl-button mdl-js-button">Tywin</button>
+                                    <button class="mdl-button mdl-js-button">Cersei</button>
+                                    <button class="mdl-button mdl-js-button">Jamie</button>
+                                    <button class="mdl-button mdl-js-button">Tyrion</button>
+                                </ul>
+                            </div>
+                            <div class="mdl-card mdl-cell mdl-cell--9-col mdl-shadow--2dp">
+                                <div class="mdl-card__title"></div>
+
+                                <div class="mdl-card__actions mdl-card--border">
+                                    <div id="diagram2"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mdl-tabs__panel" id="transactions">
+                        <div class="grid mdl-grid">
+                            <div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--2dp">
+                                <ul class="list">
+                                    <button class="mdl-button mdl-js-button">Tywin</button>
+                                    <button class="mdl-button mdl-js-button">Cersei</button>
+                                    <button class="mdl-button mdl-js-button">Jamie</button>
+                                    <button class="mdl-button mdl-js-button">Tyrion</button>
+                                </ul>
+                            </div>
+                            <div class="mdl-card mdl-cell mdl-cell--9-col mdl-shadow--2dp">
+                                <div class="mdl-card__title"></div>
+
+                                <div class="mdl-card__actions mdl-card--border">
+                                    <div id="diagram3"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mdl-tabs__panel" id="dialogs">
+                        <div class="grid mdl-grid">
+                            <div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--2dp">
+                                <ul class="list">
+                                    <button class="mdl-button mdl-js-button">Tywin</button>
+                                    <button class="mdl-button mdl-js-button">Cersei</button>
+                                    <button class="mdl-button mdl-js-button">Jamie</button>
+                                    <button class="mdl-button mdl-js-button">Tyrion</button>
+                                </ul>
+                            </div>
+                            <div class="mdl-card mdl-cell mdl-cell--9-col mdl-shadow--2dp">
+                                <div class="mdl-card__title"></div>
+
+                                <div class="mdl-card__actions mdl-card--border">
+                                    <div id="diagram4"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+				<footer class="mdl-mini-footer">
+					<div class="mdl-mini-footer--left-section">
+						<button class="mdl-mini-footer--social-btn social-btn social-btn__twitter">
+							<i class="fa fa-twitter"></i>
+							<span class="visuallyhidden">Twitter</span>
+						</button>
+						<button class="mdl-mini-footer--social-btn social-btn social-btn__gplus">
+							<i class="fa fa-google-plus"></i>
+							<span class="visuallyhidden">Google Plus</span>
+						</button>
+						<button class="mdl-mini-footer--social-btn social-btn social-btn__blogger">
+							<i class="fa fa-github"></i>
+							<span class="visuallyhidden">Github</span>
+						</button>
+					</div>
+					<div class="mdl-mini-footer--right-section">
+						<button class="mdl-mini-footer--social-btn social-btn__share">
+							<!-- <i class="material-icons" role="presentation">share</i> -->
+							<!-- <i class="fa fa-share-alt"></i> -->
+							<i class="fa fa-envelope"></i>
+							<span class="visuallyhidden">share</span>
+						</button>
+					</div>
+				</footer>
+			</main>
+		</div>
+	</div>
+
+    <script type="text/javascript">
+var d1 = "";
+d1 += "A->Proxy: Message1\n";
+d1 += "Proxy->B: Message2\n";
+d1 += "B->Proxy: Message3\n";
+d1 += "Proxy->A: Message4\n";
+var diagram = Diagram.parse(d1);
+diagram.drawSVG("diagram1", {theme: 'hand'});
+
+var protocol = "ws"
+var domain = "reticulum.local"; // location.hostname;
+var port = 7000; // location.port;
+
+var ws = new WebSocket(protocol + "://" + domain + ":" + port, "admin");
+//console.log("[CONNECT]");
+//console.log("Socket state:", this.ws.readyState);
+
+ws.onopen = function() {
+    //addMessage("Socket status: "+socket.readyState+" (open)");
+    console.log("[OPENED]");
+};
+
+ws.onclose = function() {
+    //addMessage("Socket status: "+socket.readyState+" (closed)");
+    console.log("[CLOSED]");
+};
+
+ws.onmessage = function(msg) {
+    // stack.onData(msg.data, Reticulum.Parser.parseAddress(msg.origin).uri.host);
+};
+
+    </script>
+</body>
+
+</html>

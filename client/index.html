@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+
+	<script type="text/javascript" src="utils.js"></script>
+	<script type="text/javascript" src="parser.js"></script>
+	<script type="text/javascript" src="media2.js"></script>
+	<script type="text/javascript" src="transport.js"></script>
+	<script type="text/javascript" src="sip.js"></script>
+	<script type="text/javascript" src="ua.js"></script>
+	<script type="text/javascript" src="rtculum.js"></script>
+
+	<link rel="stylesheet" href="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.blue_grey-red.min.css">
+	<script src="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.min.js"></script>
+	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+
+	<style type="text/css">
+.mdl-card__title {
+	padding: 0;
+	position: relative;
+}
+
+button {
+	float: right;
+	top: 16px;
+	margin: 0 5px !important;
+}
+
+.mdl-mini-footer--social-btn {
+	background: none;
+	color: #cecece;
+}
+
+.fa {
+	font-size: 25px;
+}
+
+#remoteVideo {
+	width: 100%;
+}
+
+#localVideo {
+	width: 25%;
+    position: absolute;
+    background-color: #FF5252;
+    bottom: 0;
+    right: 0;
+}
+
+video {
+	background-color: black;
+}
+
+.grid {
+	max-width: 900px;
+}
+	</style>
+</head>
+<body>
+	<div class="mdl-layout__container"></div>
+		<div class="mdl-layout">
+			<header class="mdl-layout__header">
+				<div class="mdl-layout-icon"></div>
+				<div class="mdl-layout__header-row">
+					<span class="mdl-layout-title">Reticulum</span>
+					<div class="mdl-layout-spacer"></div>
+					<nav class="mdl-navigation">
+						<a class="mdl-navigation__link" href="#">Help</a>
+						<span class="mdl-layout-title">Disconnected</span>
+					</nav>
+				</div>
+			</header>
+
+			<main class="mdl-layout__content">
+				<div class="grid mdl-grid">
+					<div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--2dp">
+
+						<div class="mdl-card__title">
+							<!--<div id="status">connected</div>-->
+							<video id="remoteVideo" autoplay></video>
+							<video id="localVideo" autoplay muted></video>
+						</div>
+
+						<div class="mdl-card__actions mdl-card--border">
+							<form action="#">
+								<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+									<input class="mdl-textfield__input" type="text" id="username" value="sanjin" />
+									<label class="mdl-textfield__label" for="username">Username</label>
+								</div>
+								<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+									<input class="mdl-textfield__input" type="text" id="password" value="spass" />
+									<label class="mdl-textfield__label" for="password">Password</label>
+								</div>
+
+								<button id="reg" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">Register</button>
+								<button id="connect" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent">Connect</button>
+
+								<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+									<input class="mdl-textfield__input" type="text" id="remote" value="edo" />
+									<label class="mdl-textfield__label" for="remote">Remote</label>
+								</div>
+
+								<button id="answer" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">Answer</button>
+								<button id="call" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent">Call</button>
+							</form>
+						</div>
+					</div>
+				</div>
+
+				<footer class="mdl-mini-footer">
+					<div class="mdl-mini-footer--left-section">
+						<button class="mdl-mini-footer--social-btn social-btn social-btn__twitter">
+							<i class="fa fa-twitter"></i>
+							<span class="visuallyhidden">Twitter</span>
+						</button>
+						<button class="mdl-mini-footer--social-btn social-btn social-btn__gplus">
+							<i class="fa fa-google-plus"></i>
+							<span class="visuallyhidden">Google Plus</span>
+						</button>
+						<button class="mdl-mini-footer--social-btn social-btn social-btn__blogger">
+							<i class="fa fa-github"></i>
+							<span class="visuallyhidden">Github</span>
+						</button>
+					</div>
+					<div class="mdl-mini-footer--right-section">
+						<button class="mdl-mini-footer--social-btn social-btn__share">
+							<!-- <i class="material-icons" role="presentation">share</i> -->
+							<!-- <i class="fa fa-share-alt"></i> -->
+							<i class="fa fa-envelope"></i>
+							<span class="visuallyhidden">share</span>
+						</button>
+					</div>
+				</footer>
+			</main>
+		</div>
+	</div>
+
+	<script type="text/javascript">
+		var domain = location.hostname; // "reticulum.local"
+		var port = location.port; // 7000
+		var webphone = null;
+
+		var usernameElement = document.getElementById("username");
+		var passElement = document.getElementById("pass");
+		var remoteElement = document.getElementById("remote");
+
+		document.getElementById("connect").onclick = function() {
+			webphone = new Phone(true, true, usernameElement.value, domain, port);// autorespond, autodecline, user, domain
+			webphone.transport.connect();
+		}
+
+		document.getElementById("reg").onclick = function() {
+			webphone.register();
+		}
+
+		document.getElementById("call").onclick = function() {
+			webphone.call('"Henry Sinnreich" <sip:'+ remoteElement.value + '@' + domain + ':' + port + '>', "");
+		}
+
+		document.getElementById("answer").onclick = function() {
+			webphone.answer();
+		}
+
+	</script>
+
+</body>
+</html>
