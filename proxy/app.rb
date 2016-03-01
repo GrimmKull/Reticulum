@@ -32,7 +32,7 @@ class Client
 end
 
 class Connection
-    attr_accessor :ws, :remote
+    attr_accessor :ws, :remote, :expires
 
     def initialize ws, remote
         @ws = ws
@@ -40,10 +40,12 @@ class Connection
     end
 
     def send data
-        success = @ws.send data.to_s
-
-        p ["SEND over WS Ssuccess:", success]
+        @ws.send data.to_s
     end
+
+	def expired?
+		return @expires <= Time.now.utc.to_i
+	end
 end
 
 class Transport
@@ -178,7 +180,7 @@ class Transaction
 
     def self.transactions
         s = JSON.generate (@@s_trans)
-        c = JSON.generate (@@c_trans)
+        # c = JSON.generate (@@c_trans)
 
         #puts s
 
@@ -607,7 +609,6 @@ class Sip
         Sip.default(response)
     end
 
-    # TODO: in case that a WS client was not found make a WS client that can connect to another Proxy
     def self.send message, withCancel=false
         hop = nil
 
@@ -641,20 +642,6 @@ class Sip
             	end
             end
 
-            # NOTE: python code
-            # if request.Route:
-            # routes = request.all('Route')
-            # if len(routes) > 0:
-            #     target = routes[0].uri
-            #     if not target or 'lr' not in target.param: # strict route
-            #         if _debug: print 'strict route target=', target, 'routes=', routes
-            #         del routes[0] # ignore first route
-            #         if len(routes) > 0:
-            #             if _debug: print 'appending our route'
-            #             routes.append(Header(str(request.uri), 'Route'))
-            #         request.Route = routes
-            #         request.uri = target;
-
             # TODO: resolve addresses for hop
             addresses = []
             # (function(callback) {
@@ -667,13 +654,11 @@ class Sip
             # })
             # TODO: remove this line, for now use hop as address
             addresses.push hop
-            #(function(addresses) {
-            if(message.method == 'ACK')
-                if(!message.via.kind_of?(Array))
-                    message.via = [];
-                end
 
-                message.unshiftRecordRoute("sips:" + Proxy.proxyip + ":" + Proxy.proxyport)
+            if(message.method == 'ACK')
+                message.via = [] unless message.via.kind_of? (Array)
+
+                message.unshiftRecordRoute("<sips:" + Proxy.proxyip + ":" + Proxy.proxyport + ";lr>")
                 # TODO: add this proxy Via header
                 #if(message.via.length == 0)
                 message.unshiftVia("SIP/2.0/WSS " + Proxy.proxyip + ":" + Proxy.proxyport + ";branch=" + Transaction.generateBranch())
@@ -681,7 +666,6 @@ class Sip
 
                 if(addresses.length == 0)
                     #p [ "ERROR", "no addresses" ]
-                    #errorLog(new Error("ACK: couldn't resolve " + stringifyUri(m.uri)));
                     return;
                 end
 
@@ -689,33 +673,26 @@ class Sip
 
                 remote = Storage.users[address.uri.user].remote
 
-                if !remote.nil?
+				unless remote.nil?
                     Transport.send(message, remote)
-                end
+				else
+					# TODO: in case that a WS client was not found make a WS client that can connect to another Proxy
+				end
             else
-
-                #p ["CTRANS create", t.nil?]
-                #p ["CALLBACK", callback]
-                # TODO: implement sequentialSearch
-                #sequentialSearch(transaction.createClientTransaction.bind(transaction), transport.open.bind(transport), addresses, message, callback || function() {});
                 if message.method != 'CANCEL'
                     message.via = [] unless message.via.kind_of? (Array)
 
-                    message.unshiftRecordRoute("sips:" + Proxy.proxyip + ":" + Proxy.proxyport)
-                    #@hostname = "proxy.reticulum.local" if Sip.hostname.nil?
-                    # TODO: check the Via branch after this line
+                    message.unshiftRecordRoute("<sips:" + Proxy.proxyip + ":" + Proxy.proxyport + ";lr>")
                     message.unshiftVia("SIP/2.0/WSS " + Proxy.proxyip + ":" + Proxy.proxyport + ";branch=" + Transaction.generateBranch())
                 end
 
-                # if not valid addresses send 404
+                # if no valid addresses send 404
                 if addresses.length == 0
-                    # puts "NO Addresses 404 !!!!!!!!!!!!!!!!!!!!!!!!!!!"
                     Sip.handle(Sip.makeResponse(message, 404, "Not Found"), withCancel)
                 end
 
                 while addresses.length > 0
-                    # TODO: reenable error handling
-                    #begin
+                    begin
                         # get first address from array
                         address = addresses.shift()
 
@@ -741,24 +718,23 @@ class Sip
                             Sip.handle(Sip.makeResponse(message, 410, "Gone"), withCancel)
                             return
                         end
-                        #puts "REMOTE",address.uri.user, remote.nil?, Storage.users
+
                         connection = Transport.get remote
-                        #puts "CONNECTION", connection
+
                         # create a new client transaction
                         t = Transaction.createCTrans(message, connection, withCancel)
                         # if any remote transport error send 503 response
                         #t.message(Sip.makeResponse(message, 503, "Service Unavailable"))
 
-                    # rescue
+                    rescue
                     #     # NOTE: address is local if user is registered on this proxy
                     #     puts "Rescue to error 430 or 503"
-                    #     local = true
-                    #    handle(local ? Sip.makeResponse(message, 430, "Flow Failed") : Sip.makeResponse(message, 503, "Service Unavailable"));
-                    # end
+                    	local = true
+                    	Sip.handle(local ? Sip.makeResponse(message, 430, "Flow Failed") : Sip.makeResponse(message, 503, "Service Unavailable"));
+                    end
                 end
 
             end
-            #});
         end
     end
 
@@ -789,21 +765,6 @@ class Sip
     end
 
     def self.makeCancel basemsg, via, routes
-        # p [ "MAKE CANCEL --------------------------------" ]
-        # p [ basemsg.to_s ]
-        # # p [ "---------------SERVER-----------------" ]
-        # # p [ Transaction.getServer(basemsg).nil? ]
-        # p [ "---------------BASEMSG ID-----------------" ]
-        # #p [ Transaction.transactionId(basemsg) ]
-        # p [ "ID", basemsg.id() ]
-        # p [ "RQID", basemsg.requestID() ] unless basemsg.isRequest
-        # #p [ "---------------CLIENTS-----------------" ]
-        # # p [ Transaction.getClient(basemsg).nil? ]
-        # #p [ Transaction.clientTransactions ]
-        # p [ "---------------MSGS-----------------" ]
-        # Storage.messages.each { |k,v| p [ "MSG", k,v ]}
-        # p [ "-------------------------------- MAKE CANCEL" ]
-
         request = basemsg
         request = basemsg.original unless basemsg.isRequest
 
@@ -876,10 +837,27 @@ class Context
     attr_accessor :cancelled
 end
 
+class ContactBinding
+	attr_accessor :contact
+	attr_accessor :expires
+	attr_accessor :sequence
+	# NOTE: enable for outbound extension support
+	# attr_accessor :ob
+
+	def initialize contact, expires, cseq
+		@contact = contact
+        expires = expires.to_i
+		expires = 3600 if expires == 0
+		expires = contact.address.uri.params["expires"].to_i unless contact.address.uri.params["expires"].nil?
+		@expires = Time.now.utc.to_i + expires*1000
+		@sequence = cseq.number
+	end
+end
+
 class Storage
     @@contexts = {}
     @@users = {}
-    @@contacts = {}
+    @@bindings = {}
     @@messages = {}
 
 	# @@access
@@ -900,9 +878,6 @@ class Storage
 			@@users[row["name"]] = UserInfo.new row["name"], row["password"]
 			@@users[row["name"]].email = row["email"]
 		end
-
-        # TODO: remove this temporary storage for user contacts
-        #@contacts = {}
     end
 
     def self.contexts
@@ -917,8 +892,8 @@ class Storage
 		return @@users.values
 	end
 
-    def self.contacts
-        @@contacts
+    def self.bindings
+        @@bindings
     end
 
     def self.messages
@@ -1000,20 +975,16 @@ class Proxy
             ctx.cancellers = {}
             Storage.contexts[id] = ctx
 
-            # TODO: reenable exception handling
-            #begin
+            begin
                 user = request.to.uri.user
 
-                if request.method == 'REGISTER'
-
-                    # TODO: implement auth
+				if !['ACK', 'BYE', 'CANCEL', 'INVITE', 'MESSAGE', 'OPTIONS', 'REGISTER'].include? (request.method)
+                    send(Sip.makeResponse(request, 405, "Method Not Allowed"));
+				elsif request.method == 'REGISTER'
                     userinfo = Storage.users[user]
                     Storage.users[user].remote = remote unless userinfo.nil?
                     Storage.users[user].uri = request.to.uri unless userinfo.nil?
 
-                    #puts "Users", Storage.users
-                    # puts "User info", Storage.users[user].remote.nil?
-#=begin
                     if userinfo.nil?
                         Sip.send(Utils.challenge(nil, Sip.makeResponse(request, 401, "Authentication Required")));
                     else
@@ -1021,48 +992,66 @@ class Proxy
                         if !Utils.authenticateRequest(userinfo, request)
                             Sip.send(Utils.challenge(userinfo.session, Sip.makeResponse(request, 401, "Authentication Required")));
                         else
-#=end
                             # TODO: Replace following lines with registration store save
                             contacts = request.contacts
                             contacts = [contacts] unless contacts.kind_of?(Array)
-                            Storage.contacts[user] = contacts
 
-                            response = Sip.makeResponse(request, 200, "OK")
-                            # TODO: implement real tag generation function
-                            response.to.params["tag"] = Utils.genhex(7)
+							if contacts.include? "*" && contacts.length > 1
+								response = Sip.makeResponse(request, 400, "Invalid Request")
+								send(response)
+							elsif contacts.include? "*" || request.expires == 0
+								Storage.bindings.delete(user)
+							else
+								bindings = Storage.bindings[user]
+								bindings = {} if bindings.nil?
+								contacts.each { |contact|
+									if bindings[request.callid].nil? || bindings[request.callid].sequence < request.cseq.number
+										expires = 0
+										expires = request.expires unless request.expires.nil?
 
-                            # NOTE:  _proxy.send_ not sip.send
-                            send(response)
+										bind = ContactBinding.new(contact, expires, request.cseq)
+
+										bindings[request.callid] = bind
+									elsif !bindings[request.callid].nil? && contact.params["expires"] == 0
+										bindings.delete(request.callid)
+									end
+								}
+
+								Storage.bindings[user] = bindings unless bindings.empty?
+
+	                            response = Sip.makeResponse(request, 200, "OK")
+	                            response.to.params["tag"] = Utils.genhex(7)
+
+	                            send(response)
+							end
                         end
                     end
 
-                else # TODO: check if one of allowed methods
-                    puts ["ROUTING ACK"]
-                    #puts @contacts, user
-                    # TODO: add support for contacts
-                    #if !Storage.contacts[user].nil? && Storage.contacts[user].kind_of?(Array) && Storage.contacts[user].length > 0
-                    if !Storage.users[user].nil?
+                else
+					if !Storage.bindings[user].nil? && !Storage.bindings[user].empty?
+                    # if !Storage.users[user].nil?
                         # TODO: Replace following line with registration store load
-                        request.uri = Storage.users[user].uri
-                        #request.uri = Storage.contacts[user].first#.uri
+                        # request.uri = Storage.users[user].uri
+						p [ "URI contact", Storage.bindings[user].values.first ]
+                        request.uri = Storage.bindings[user].values.first.contact.address.uri
 
-                        if request.method == 'INVITE'
+                        # NOTE: Strip  params from URI
+                        request.uri.params = {}
+
+						if request.method == 'INVITE'
                             send(Sip.makeResponse(request, 100, "Trying"))
-                        end
+						end
 
                         send(request)
-                    else
-                        # puts Storage.contacts, user
+					else
                         send(Sip.makeResponse(request, 404, "Not Found"))
-                    end
-                #else
-                    # TODO: prevent processing of methods that are not allowed
-                    #send(Sip.makeResponse(rq, 405, "Method Not Allowed"));
-                end
-            #rescue
-            #    puts "[EXCEPTION 1]"
-            #    Storage.contexts.delete(id)
-            #end
+					end
+				end
+            rescue
+                puts "[EXCEPTION 1]"
+                Storage.contexts.delete(id)
+				send(Sip.makeResponse(request, 500, "Internal Server Error"))
+            end
         end
     end
 
@@ -1159,13 +1148,7 @@ App = lambda do |env|
   if Faye::WebSocket.websocket?(env)
     ws = Faye::WebSocket.new(env, ["sip", "admin"], options)
 	local = env["HTTP_HOST"].split(":")
-	# Proxy.proxyip = local[0]
-	# Proxy.proxyport = local[1]
     Proxy.setProxyHost(local[0], local[1])
-
-    #p [:open, ws.url, ws.version, ws.protocol]
-    #p [ env, env.methods, env.instance_variables ]
-	p [proxy, Proxy.proxyip, Proxy.proxyport]
 
     ws.onopen = lambda do |event|
         if ws.protocol == "sip"
@@ -1216,37 +1199,16 @@ App = lambda do |env|
         end
     end
 
-    #ws.on('close', function() { delete flows[flowid] })
     ws.onclose = lambda do |event|
         if ws.protocol == "sip"
             p [:close, event.code, event.reason]
-            ws = nil
-            # TODO: make sure to remove ws from Transport
-            # before setting it to nil
+
             Transport.remove ws
+            ws = nil
         elsif ws.protocol == "admin"
             $logger.remove ws
-            #puts "[ADMIN disCONNECT]", $logger.admins.length
         end
     end
-
-    ws.onerror = lambda do |error|
-        puts "<><><><><><><><><><><><><><>"
-        puts "ERROR 1"
-        puts "<><><><><><><><><><><><><><>"
-        puts error.message
-        puts ""
-        puts "<><><><><><><><><><><><><><>"
-    end
-
-    ws.on(:error) { |error|
-        puts "<><><><><><><><><><><><><><>"
-        puts "ERROR 2"
-        puts "<><><><><><><><><><><><><><>"
-        puts error.message
-        puts ""
-        puts "<><><><><><><><><><><><><><>"
-    }
 
     ws.rack_response
 

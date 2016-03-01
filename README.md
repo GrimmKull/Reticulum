@@ -6,9 +6,9 @@ WebRTC Webphone with SIP Proxy implemented on Raspberry Pi platform.
 
 ## Status
 
-![status](https://img.shields.io/badge/reticulum proxy-90%25-green.svg?style=flat-square)
+![status](https://img.shields.io/badge/reticulum proxy-90%25%20done-brightgreen.svg?style=flat-square&logoWidth=30)
 
-![status](https://img.shields.io/badge/reticulum webphone-80%25-green.svg?style=flat-square)
+![status](https://img.shields.io/badge/reticulum webphone-85%25%20done-green.svg?style=flat-square&logoWidth=5)
 
 
 ## Launching SIP Proxy and Webphone static file hosting
@@ -17,6 +17,12 @@ To start the Reticulum server use:
 
 ```bash
 ./run.sh
+```
+
+To stop the Reticulum server use:
+
+```bash
+./stop.sh
 ```
 
 When running on Windows make sure that the ruby gems have been installed with `openssl` support.
@@ -61,10 +67,36 @@ CREATE TABLE user (
 );
 ```
 
+## Building single JavaScript webphone file
+
+To combine all Webphone source files use `gulp`.
+
+### Install gulp
+
+Inside the builds folder run the following commands:
+
+```
+npm install gulp
+npm install gulp-concat
+```
+
+To start the default `gulp` task call:
+
+```
+gulp
+```
+
+This will create a file `reticulum_phone.js` in the `builds/build` folder. To use this file copy it to the `client` folder, comment all other source files in `index.html` and uncomment the following line:
+
+```html
+<script type="text/javascript" src="reticulum_phone.js"></script>
+```
+
 ## Resources
 
  * [Faye WS](https://github.com/faye/faye-websocket-ruby)  
  * [P2P SIP](https://github.com/theintencity/p2p-sip)  
+ * [SIP.js](https://github.com/onsip/SIP.js)
  * [SIP](https://github.com/kirm/sip.js)  
  * [libre](http://www.creytiv.com/re.html)
  * [baresip](http://www.creytiv.com/baresip.html)
@@ -100,3 +132,26 @@ Proxy->>A: 200 OK
 
 A-->>B: ACK
 ```
+
+## Running WS stress test
+
+```bash
+npm install -g thor
+```
+
+Add support for SIP messages to `Thor` by adding the `protocol: "sip"` line to `mjolnir.js`:
+
+```javascript
+var socket = new Socket(task.url, {
+	protocolVersion: protocol,
+	protocol: "sip"
+});
+```
+
+Run `Thor` with the following command:
+
+```bash
+thor --amount 1000 --messages 1 --masked wss://$IP_ADDRESS:7000
+```
+
+Make sure to add a unique SIP Register message generator to generator.js

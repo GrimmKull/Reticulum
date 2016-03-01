@@ -1,3 +1,8 @@
+*/node_modules
+
+builds/build
+*/reticulum_phone.js
+
 Tasks.md
 Masters.md
 
@@ -10,4 +15,7 @@ client/sipml5call.html
 client/sipml5.min.js
 
 tmp/
+logs/
 debug/
+figures/
+appliance/

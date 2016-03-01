@@ -175,8 +175,8 @@ Phone.prototype.onMessage = function(ua, request) {
 
 Phone.prototype.onInvite = function(ua, request) {
 	console.log("There is an INVITE!!!", this.auto_respond, this.autorespond, this.autodecline);
-	this.autorespond = false;
-	this.autodecline = false;
+	// this.autorespond = false;
+	// this.autodecline = false;
 
 	if (this.autodecline) {
 		ua.sendResponse(ua.createResponse(603, "Decline"));
@@ -218,17 +218,15 @@ Phone.prototype.onInvite = function(ua, request) {
 //				this.close();
 			}
 
-			if (this.autorespond) {
-				ua.sendResponse(ua.createResponse(200, "OK"));
-			} else {
-				// TODO: Add contact header ???
-				this._ua.setState("PROCEEDING");
-				//console.log("[INVITE UA]", ua);
-				ua.sendResponse(ua.transaction.createResponse(180, "Ringing"));
+			// TODO: Add contact header ???
+			this._ua.setState("PROCEEDING");
+			//console.log("[INVITE UA]", ua);
+			ua.sendResponse(ua.transaction.createResponse(180, "Ringing"));
 
-				// TODO: swith to using Phone.ua instead of Phone.inviteUA
-				//this.inviteUA = ua;
-				this._ua.uacore = ua;
+			this._ua.uacore = ua;
+
+			if (this.autorespond) {
+				this.media.makeAnswer();
 			}
 		} else {
 			ua.sendResponse(ua.createResponse(486, 'Busy Here'));
@@ -404,7 +402,11 @@ UA.prototype.sendLater = function(message, delay) {
 
 // NOTE: promote UA to Dialog
 UA.prototype.dialogCreated = function(dialog, ua) {
-	if (EXISTS(this.uacore)) this.uacore.app = null;
+	console.log("Promoting to dialog", this.uacore, this.uacore.app);
+
+	this._oldcore = this.uacore;
+
+	//if (EXISTS(this.uacore)) this.uacore.app = null;
 	this.uacore = dialog;
 	this.uacore.app = this;
 };
@@ -560,6 +562,9 @@ UA.prototype.onResponse = function(ua, response) {
 };
 
 UA.prototype.closeCore = function() {
+	console.log("Downgrading core", this.uacore);
+	console.log("Old core", this._oldcore);
+
 	if (!EXISTS(this.uacore.close)) return;
 
 	// Close core upgraded to dialog
@@ -567,7 +572,8 @@ UA.prototype.closeCore = function() {
 	this.uacore = null;
 
 	// Recreate UACore to be able to make calls
-	this.createClient(this.local, this.local, this.domain, this.authinfo);
+	//this.createClient(this.local, this.local, this.domain, this.authinfo);
+	this.uacore = this._oldcore;
 };
 
 UA.prototype.onRequest = function(ua, request) {

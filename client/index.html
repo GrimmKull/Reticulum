@@ -11,6 +11,7 @@
 	<script type="text/javascript" src="sip.js"></script>
 	<script type="text/javascript" src="ua.js"></script>
 	<script type="text/javascript" src="rtculum.js"></script>
+	<!-- <script type="text/javascript" src="reticulum_phone.js"></script> -->
 
 	<link rel="stylesheet" href="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.blue_grey-red.min.css">
 	<script src="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.min.js"></script>
@@ -174,7 +175,7 @@ video {
 		document.getElementById("connect").onclick = function() {
 			var userauth = new AuthInfo(usernameElement.value, passElement.value);
 
-			webphone = new Phone(true, true, userauth, realm, port, 'wss');// autorespond, autodecline, user, domain==realm
+			webphone = new Phone(false, false, userauth, realm, port, 'wss');// autorespond, autodecline, user, domain==realm
 			webphone.transport.connect();
 		}
 
@@ -192,9 +193,9 @@ video {
 		document.getElementById("call").onclick = function() {
 			var remote = "";
 			if (remoteElement.value.indexOf("@") !== -1)
-				remote = '<sip:'+ remoteElement.value + '>';
+				remote = '<sips:'+ remoteElement.value + '>';
 			else
-				remote = '<sip:'+ remoteElement.value + '@' + realm + ':' + port + '>', ""
+				remote = '<sips:'+ remoteElement.value + '@' + realm + ':' + port + '>', ""
 
 			webphone.call(remote);
 		}

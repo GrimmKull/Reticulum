@@ -8,32 +8,6 @@ var EXISTS = function(obj) {
 	return true;
 };
 
-// var HAS = function(obj, prop) {
-// 	if (obj === undefined) console.log("Object is undefined");
-// 	if (obj === null) console.log("Object is null");
-//
-// 	if (!obj) return false;
-//
-// 	//console.log("Object of type " + typeof obj + " - " + obj.constructor.name);
-//
-// 	if (obj.hasOwnProperty(prop) === undefined) {
-// 		console.log(obj.constructor.name, "property", prop, "undefined");
-// 		return false;
-// 	}
-//
-// 	if (obj.hasOwnProperty(prop) === null) {
-// 		console.log(obj.constructor.name, "property", prop, "null");
-// 		return false;
-// 	}
-//
-// 	if (!(obj.prop instanceof Function)) {
-// 		console.log(obj.constructor.name, "property", prop, "not function");
-// 		return false;
-// 	}
-//
-// 	return true;
-// };
-
 function HashTable(obj)
 {
 	this.length = 0;
@@ -233,6 +207,7 @@ Stack.prototype.send = function(message, destination) {
 	// Debug info
 	message.direction = "out";
 	message.transportDestination = destination;
+	message.sentAt = Date.now();
 
 	if (message.isRequest) {
 		if (EXISTS(this.requests[message.id()])) {
@@ -259,6 +234,7 @@ Stack.prototype.send = function(message, destination) {
 Stack.prototype.onData = function(data, source) {
 
 	//try {
+		var start = Date.now();
 		var message = Reticulum.Parser.parse(data);
 // console.log("GOT!", message.isRequest ? message.method : message.statusCode, "from", source.name, "-", message.from.auri);
 // console.log("-------");
@@ -271,6 +247,8 @@ Stack.prototype.onData = function(data, source) {
 
 		message.direction = "in";
 		message.transportSource = source;
+		message.parseTime = Date.now() - start;
+		message.receivedAt = start;
 
 		if (message.isRequest) {
 			if (EXISTS(this.requests[message.id()])) {
@@ -556,6 +534,8 @@ var Transaction = function(server) {
 	this.remote = null;
 	this.tag = null;
 
+	this.history = [];
+
 	this.isServer = server;
 	this.timers = new HashTable();
 	this.timerconfs = new TimerConfs();
@@ -579,6 +559,12 @@ Transaction.prototype.setState = function(value) {
 	if (EXISTS(this.request)) method = this.request.method;
 
 	console.log("[T state] from:", this.state, "to:", value, "id:", this.id);
+
+	this.history.push({
+		from: this.state,
+		to: value,
+		at: Date.now()
+	});
 
 	this.stack.app.setStateFromTransaction(this.type, this.state, value, method);
 
@@ -1167,7 +1153,7 @@ UACore.prototype.createRequest = function(method, content, contentType) {
 	console.log("UACore createRequest", method);
 	this.server = false;
 	if (!EXISTS(this.remote)) throw "No remote party for UAC";
-	if (!EXISTS(this.local)) this.local = "\"Anonymous\" <sip:anonymous@anonymous.invalid>";
+	if (!EXISTS(this.local)) this.local = "\"Anonymous\" <sips:anonymous@anonymous.invalid>";
 
 	var uri = EXISTS(this.remoteTarget) ? this.remoteTarget : this.remote.uri;
 	if (!this.secure && uri.secure) this.secure = true;
@@ -1280,7 +1266,7 @@ UACore.prototype.sendRequest = function(request) {
 
 	// TODO:	implement routes support, append all stored Record-Route
 	//			headers as Route headers only in reverse
-console.log("UACore se", this.routeSet);
+console.log("UACore route set", this.routeSet);
 	if (EXISTS(this.routeSet) && this.routeSet.length > 0) {
 		request.routes = [];
 		for (var i = this.routeSet.length - 1; i >= 0; i--) {
@@ -1651,9 +1637,9 @@ Dialog.prototype.createRequest = function (method, content, contentType) {
 	if (EXISTS(this.remoteTag)) request.to.params.tag = this.remoteTag;
 
 	// NOTE: needed for strict route support ???
-	// if (this.routeSet.length > 0 && !EXISTS(this.routeSet[0].uri.params.lr)) {
-	// 	request.uri = this.routeSet[0].uri.copy();
-	// }
+	if (this.routeSet.length > 0 && !EXISTS(this.routeSet[0].uri.params.lr)) {
+	 	request.uri = this.routeSet[0].uri;
+	}
 
 	return request;
 };
@@ -1679,6 +1665,7 @@ Dialog.prototype.sendResponse = function (response, responsetext, content, conte
 
 	this.transaction = this.servers[0];
 	this.request = this.servers[0].request;
+
 	UACore.prototype.sendResponse.call(this, response, responsetext, content, contentType, false);
 
 	var code = response;
@@ -1692,6 +1679,7 @@ Dialog.prototype.sendCancel = function () {
 		console.log("No client transaction to send cancel");
 		return;
 	}
+
 	this.transaction = this.clients[0];
 	this.request = this.clients[0].request;
 	UACore.prototype.sendCancel.call(this);
@@ -1707,8 +1695,8 @@ Dialog.prototype.onRequest = function (transaction, request) {
 
 	this.remoteSeq = request.cseq.number;
 
-	if (request.method === 'INVITE' && request.contact) {
-		//this.remoteTarget = request.first('Contact').value.uri.dup();
+	if (request.method === 'INVITE' && request.contacts) {
+		this.remoteTarget = request.contacts[0].address.uri;
 	}
 
 	if (request.method === 'ACK' || request.method === 'CANCEL') {
@@ -1735,8 +1723,8 @@ Dialog.prototype.onResponse = function(transaction, response) {
 	console.log("dlg on response");
 
 	// Incoming response in a dialog.
-	if (response.is2xx() && response.contact && transaction && transaction.request.method === 'INVITE') {
-		//this.remoteTarget = response.first('Contact').value.uri.dup();
+	if (response.is2xx() && EXISTS(response.contacts) && EXISTS(transaction) && transaction.request.method === 'INVITE') {
+		this.remoteTarget = request.contacts[0].address.uri;
 	}
 
 	if (!response.is1xx()) {// final response

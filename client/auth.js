@@ -21,7 +21,7 @@ Digest.createAuthorization = function (response, request, context) {
 
     // @implements RFC2617 P5L20-P5L41
     if (response.challenge.type.toLowerCase() == "basic") {
-       return response.challenge.type + " " + Basic(username, password);
+       //return response.challenge.type + " " + Basic(username, password);
     // @implements RFC2617 P6L46-P7L5
     } else if (response.challenge.type.toLowerCase() == "digest") {
         // @implements RFC2617 P8L3-P8L25
