@@ -154,6 +154,10 @@ var Stack = function(app, transport) {
 
 	this.fixedContact = null;
 	this.fixedVia = null;
+
+	this.stores = {
+		transactions: new HashTable()
+	};
 };
 
 Stack.prototype.delete = function() {
@@ -165,6 +169,10 @@ Stack.prototype.delete = function() {
 Stack.prototype.uri = function() {
 	// Construct URI for transport
 	var uri = this.transport.isSecure() ? "sips" : "sip";
+
+	// NOTE: force SIP instead of SIPS for JsSIP support
+	uri = "sip";
+
 	uri += ":" + this.transport.server + ":" + this.transport.port;
 
 	return uri;
@@ -395,7 +403,7 @@ Stack.prototype.handleRequest = function(message, uri) {
 				// remove transaction
 				this.transactions.removeItem(transaction.id);
 			}
-console.log("Layer is:", layer, "request is:", message.method);
+console.log("Layer is:", layer, "request is:", message.method, this.transactions.getItem(transaction.id), transaction.id);
 		} else if (message.method !== "ACK") {
 			console.log("Error 404 not found!");
 			//return
@@ -452,6 +460,8 @@ console.log("Transaction for resp not found", Transaction.createId(branch, messa
 
 		if (message.method === "BYE" && message.is2xx()) {
 			this.app._ua.closeCore();
+		} else if (message.method === "BYE" && message.isFinal()) {
+			this.app._ua.closeCore();
 		}
 	}
 };
@@ -501,6 +511,8 @@ Stack.prototype.createTimer = function(obj) {
 Stack.prototype.findDialog = function(arg) {
 	//console.log("find dlg argument", typeof arg);
 	var dialog = this.dialogs.getItem(Dialog.extractId(arg));
+
+	if (!dialog) return null;
 
 	if (dialog.closed) return null;
 
@@ -627,6 +639,9 @@ Transaction.createServer = function(stack, app, request, transport, tag, start) 
 
 	transaction.id = Transaction.createId(transaction.branch, request.method);
 	stack.transactions.setItem(transaction.id, transaction);
+
+	stack.stores.transactions.setItem(transaction.branch + "|" + request.method, transaction);
+
 	if (start === true)
 		transaction.start();
 	else
@@ -658,6 +673,9 @@ Transaction.createClient = function(stack, app, request, transport, remote) {
 
 	transaction.id = Transaction.createId(transaction.branch, request.method);
 	stack.transactions.setItem(transaction.id, transaction);
+
+	stack.stores.transactions.setItem(transaction.branch + "|" + request.method, transaction);
+
 	transaction.start();
 
 	return transaction;
@@ -692,8 +710,8 @@ Transaction.prototype.createCancel = function () {
 
 		// TODO: check if headers are correct and don't overwrite already present headers
 		message.addHeader("Call-ID", Reticulum.Parser.Enum.SIP_HDR_CALL_ID, this.request.callid);
-		message.addHeader("From", Reticulum.Parser.Enum.SIP_HDR_FROM, this.request.from.value);
-		message.addHeader("To", Reticulum.Parser.Enum.SIP_HDR_TO, this.request.to.value);
+		message.addHeader("From", Reticulum.Parser.Enum.SIP_HDR_FROM, this.request.from.toString());
+		message.addHeader("To", Reticulum.Parser.Enum.SIP_HDR_TO, this.request.to.toString());
 		message.addHeader("CSeq", Reticulum.Parser.Enum.SIP_HDR_CSEQ, this.request.cseq.number + " " + "CANCEL");
 
 		message.copyVias(this.request.vias);
@@ -1117,7 +1135,6 @@ var UACore = function(stack, request, server, authinfo) {
 	this.remoteCandidates = null;
 	this.localSeq = 0;
 	this.remoteSeq = 0;
-	this.contact = Reticulum.Parser.parseAddress(stack.uri());
 
 	if (EXISTS(request)) {
 		this.callid = request.callid;
@@ -1125,6 +1142,10 @@ var UACore = function(stack, request, server, authinfo) {
 		this.local = request.to;
 		this.subject = request.subject;
 		this.secure = request.uri.scheme === "sips";
+
+		var tempContact = "\"Anonymous\" <sip:" + this.local.uri.user + "@r3t1cu1um.invalid;transport=wss>;expires=1800";
+
+		this.contact = Reticulum.Parser.parseAddress(tempContact);//stack.uri());
 	} else {
 		this.callid = stack.createCallID();
 	}
@@ -1134,6 +1155,7 @@ var UACore = function(stack, request, server, authinfo) {
 
 	if (EXISTS(this.local) && EXISTS(this.local.uri.user))
 		this.contact.uri.user = this.local.uri.user;
+
 
 	// TODO: check if AutoACK is needed
 	this.autoack = false;//true;
@@ -1153,7 +1175,7 @@ UACore.prototype.createRequest = function(method, content, contentType) {
 	console.log("UACore createRequest", method);
 	this.server = false;
 	if (!EXISTS(this.remote)) throw "No remote party for UAC";
-	if (!EXISTS(this.local)) this.local = "\"Anonymous\" <sips:anonymous@anonymous.invalid>";
+	if (!EXISTS(this.local)) this.local = "\"Anonymous\" <sip:anonymous@anonymous.invalid>";
 
 	var uri = EXISTS(this.remoteTarget) ? this.remoteTarget : this.remote.uri;
 	if (!this.secure && uri.secure) this.secure = true;
@@ -1185,13 +1207,17 @@ UACore.prototype.createRequest = function(method, content, contentType) {
 
 	var branch = Transaction.createBranch();
 
-	var tempVia = "SIP/2.0/" + this.stack.transport.protocol.toUpperCase() + " " + "r3t1cu1um.invalid" + ";branch=" + branch + ";rport";
-	var tempContact = "\"Anonymous\"<sips:" + this.local.uri.user + "@r3t1cu1um.invalid;transport=wss>;expires=1800";
+	var name = this.local.uri.user;
+	name = "\"" + name[0].toUpperCase() + name.substr(1) + " RTC\"";
 
-	if (this.stack.fixedVia)
-		tempVia = this.stack.fixedVia.toString();
-	if (this.stack.fixedContact)
-		tempContact = this.stack.fixedContact.toString();
+	var tempVia = "SIP/2.0/" + this.stack.transport.protocol.toUpperCase() + " " + "r3t1cu1um.invalid" + ";branch=" + branch + ";rport";
+	var tempContact = name + " <sip:" + this.local.uri.user + "@r3t1cu1um.invalid;transport=wss>;expires=1800";
+
+	// TODO: reenable if needed for client side support
+	// if (this.stack.fixedVia)
+	// 	tempVia = this.stack.fixedVia.toString();
+	// if (this.stack.fixedContact)
+	// 	tempContact = this.stack.fixedContact.toString();
 
 	if (!this.localTarget) {
 		this.localTarget = this.stack.uri();
@@ -1201,7 +1227,10 @@ UACore.prototype.createRequest = function(method, content, contentType) {
 	request.addHeader("Via", Reticulum.Parser.Enum.SIP_HDR_VIA, tempVia);
 	request.addHeader("Contact", Reticulum.Parser.Enum.SIP_HDR_CONTACT, tempContact);
 
-console.log("UACore routeSet", this.routeSet);
+	// Add new branch to fixedVia
+	if (method !== "ACK" && method !== "CANCEL") request.vias[0].params.branch = branch;
+
+	console.log("UACore routeSet", this.routeSet);
 
 	if (EXISTS(this.routeSet) && this.routeSet.length > 0) {
 		for (var i = this.routeSet.length - 1; i >= 0; i--) {
@@ -1210,6 +1239,17 @@ console.log("UACore routeSet", this.routeSet);
 	}
 
 	if (contentType) request.addHeader("Content-Type", Reticulum.Parser.Enum.SIP_HDR_CONTENT_TYPE, contentType);
+
+	// request.contentLength = 0;
+	// if (content) request.contentLength = content.length();
+
+	// var l = -1;
+
+	// if (content) l = content.length();
+
+	// console.log("CORE createRequest", l, content);
+
+	// request.addHeader("Content-Length", Reticulum.Parser.Enum.SIP_HDR_CONTENT_LENGTH, content.length());
 
 	return request;
 };
@@ -1434,12 +1474,25 @@ UACore.prototype.sendResponse = function(response, responseText, content, conten
 		if (EXISTS(this.request.record_route)) response.record_route = this.request.record_route;
 
 		// TODO: implement contact header for response
-		// if (!EXISTS(response.contact)) {
-		// 	var contact = this.contact;
-		// 	if (!contact.uri.host.name) contact.uri.user = this.request.To.value.uri.user;
-		// 	contact.uri.secure = this.secure;
-		// 	response.Contact = Header(str(contact), 'Contact')
-		// }
+		if (!EXISTS(response.contact)) {
+			var contact = this.contact;
+
+			console.log(this.contact);
+
+			if (!EXISTS(contact.uri.user)) contact.uri.user = this.request.to.uri.user;
+
+
+			if (Utils.unquote(contact.dname) === "Anonymous") {
+				var name = this.request.to.uri.user;
+				name = name[0].toUpperCase() + name.substr(1);
+
+				contact.dname = "\"" + name + " RTC\"";
+			}
+
+			// "\"Anonymous\"<sips:" + this.local.uri.user + "@r3t1cu1um.invalid;transport=wss>;expires=1800";
+
+			response.addHeader("Contact", Reticulum.Parser.Enum.SIP_HDR_CONTACT, contact.toString());
+		}
 
 		var dialog = Dialog.createServer(this.stack, this.request, response, this.transaction);
 
@@ -1463,6 +1516,9 @@ UACore.prototype.createResponse = function(responseCode, responseText, content, 
 	response = Message.createResponse(responseCode, responseText, null, content, this.request);
 
 	if (contentType) response.addHeader("Content-Type", Reticulum.Parser.Enum.SIP_HDR_CONTENT_TYPE, contentType);
+	if (content) response.addHeader("Content-Length", Reticulum.Parser.Enum.SIP_HDR_CONTENT_LENGTH, content.length);
+
+
 	if (response.statusCode !== 100 && !EXISTS(response.to.params.tag)) response.to.params.tag = this.localTag;
 	return response;
 };
@@ -1619,10 +1675,15 @@ Dialog.extractId = function(message) {
 };
 
 Dialog.prototype.close = function () {
-	this.closed = true;
+	if (this.closed) return;
+
 	var d = this.stack.dialogs.getItem(this.id());
+
+	if (EXISTS(d) && d.closed) return;
+
 	console.log("CLOSE dialog", d);
 	if (EXISTS(d)) d.closed = true;
+	this.closed = true;
 	//if (EXISTS(this.stack)) this.stack.dialogs.removeItem(this.id());
 };
 
@@ -1634,12 +1695,21 @@ Dialog.prototype.id = function () {
 Dialog.prototype.createRequest = function (method, content, contentType) {
 	console.log("Dialog createRequest", this.routeSet);
 	var request = UACore.prototype.createRequest.call(this, method, content, contentType);
+
 	if (EXISTS(this.remoteTag)) request.to.params.tag = this.remoteTag;
 
 	// NOTE: needed for strict route support ???
 	if (this.routeSet.length > 0 && !EXISTS(this.routeSet[0].uri.params.lr)) {
 	 	request.uri = this.routeSet[0].uri;
 	}
+
+	// Add Contact to In-Dialog request
+	var name = this.localParty.uri.user;
+	name = "\"" + name[0].toUpperCase() + name.substr(1) + " RTC\"";
+
+	var tempContact = name + " <sip:" + this.localParty.uri.user + "@r3t1cu1um.invalid;transport=wss>;expires=1800";
+
+	request.addHeader("Contact", Reticulum.Parser.Enum.SIP_HDR_CONTACT, tempContact);
 
 	return request;
 };
@@ -1650,6 +1720,8 @@ Dialog.prototype.createResponse = function (responsecode, responsetext, content,
 	var request = this.servers[0].request;
 	var response = Message.createResponse(responsecode, responsetext, null, content, request);
 	if (contentType) response.addHeader("Content-Type", Reticulum.Parser.Enum.SIP_HDR_CONTENT_TYPE, contentType);
+
+console.log("NEW DIALOG RESP", "localtag:", this.localtag, "current tag:", response.to.params.tag);
 
 	if (response.statusCode !== 100 && !EXISTS(response.to.params.tag)) {
 		response.to.params.tag = this.localTag;
@@ -1757,6 +1829,9 @@ Dialog.prototype.onResponse = function(transaction, response) {
 
 	if (response.is2xx() && response.method === 'BYE') {
 		console.log("Got 200 OK response on BYE, close dialog");
+		this.close();
+	} else if (response.isFinal() && response.method === 'BYE') {
+		console.log("Got FINAL response to BYE in dialog, close dialog");
 		this.close();
 	}
 };

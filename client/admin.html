@@ -13,9 +13,13 @@
 
 	<!-- <link rel="stylesheet" href="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.blue_grey-red.min.css">
 	<script src="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.min.js"></script> -->
-	<link rel="stylesheet" href="https://storage.googleapis.com/code.getmdl.io/1.1.0/material.blue_grey-red.min.css">
+	<!-- <link rel="stylesheet" href="https://storage.googleapis.com/code.getmdl.io/1.1.0/material.blue_grey-red.min.css">
 	<script src="https://storage.googleapis.com/code.getmdl.io/1.1.0/material.min.js"></script>
-	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons"> -->
+
+	<link rel="stylesheet" href="/ui/material.blue_grey-red.min.css">
+	<link rel="stylesheet" href="/ui/font-awesome.min.css">
+	<script src="/ui/material.min.js"></script>
 
 	<!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css"> -->
 
@@ -399,11 +403,11 @@ ws.onerror = function(error) {
 ws.onmessage = function(msg) {
 	var content = JSON.parse(msg.data)
 
-	console.log(content)
+	//console.log(content)
 
 	if (content.type === "message") {
 		messages.push(content.data);
-
+console.log(content.data.msg)
 		if (document.getElementById("diagram1").firstChild)
 			document.getElementById("diagram1").firstChild.remove();
 
@@ -426,7 +430,7 @@ ws.onmessage = function(msg) {
 			states: [content.data.state],
 		}
 
-		console.log("NEW TRANS", content.data.id, content.data.type, content.data.state);
+		//console.log("NEW TRANS", content.data.id, content.data.type, content.data.state);
 
 		//refreshTransactions();
 		appendItem("trans_list", content.data.id, content.data.state)
@@ -435,7 +439,7 @@ ws.onmessage = function(msg) {
 
 		if (transactions[content.data.id]) transactions[content.data.id].states.push(content.data.state);
 
-		console.log("NEW STATE", content.data.id, content.data.state);
+		//console.log("NEW STATE", content.data.id, content.data.state);
 
 		updateItem("trans_list", content.data.id, content.data.state);
 	} else if (content.type === "users") {

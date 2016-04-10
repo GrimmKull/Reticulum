@@ -50,7 +50,7 @@ var Phone = function(autorespond, autodecline, authinfo, realm, port, protocol) 
 	//this.hasOutbound = true; // false; // ??? don't allow outbound from server
 	this.autorespond = autorespond;
 	this.autodecline = autodecline;
-
+	// this.autohangup = true;
 
 	// Stack
 	//var stack = this.stack;
@@ -227,6 +227,15 @@ Phone.prototype.onInvite = function(ua, request) {
 
 			if (this.autorespond) {
 				this.media.makeAnswer();
+
+				if (this.autohangup) {
+					var self = this;
+					console.log("*** on auto answer hangup in 10s ***");
+
+					window.setTimeout(function() {
+						self._ua.closeCall();
+					}, 10*1000);
+				}
 			}
 		} else {
 			ua.sendResponse(ua.createResponse(486, 'Busy Here'));
@@ -443,6 +452,10 @@ UA.prototype.createRequest = function(method, subject, body) {
 	console.log("UA create REQUEST");
 	var request = null;
 	var interval = 3600;
+	var len = 0;
+
+	if (EXISTS(body)) len = body.length;
+
 	if (method === "REGISTER") {
 		console.log("UA create Register");
 		//request = this.uacore.createRequest(method);
@@ -459,8 +472,9 @@ UA.prototype.createRequest = function(method, subject, body) {
 		// request.contacts[0].uri.host.name = this.user;
 		// TODO: fix User-Agent header code to detect Phone app version and browser
 		request.addHeader("User-Agent", Reticulum.Parser.Enum.SIP_HDR_USER_AGENT, "Reticulum client 0.0.1 Chrome");
-		request.addHeader("Subject", Reticulum.Parser.Enum.SIP_HDR_SUBJECT, subject);
+		if (EXISTS(subject)) request.addHeader("Subject", Reticulum.Parser.Enum.SIP_HDR_SUBJECT, subject);
 		request.addHeader("Content-Type", Reticulum.Parser.Enum.SIP_HDR_CONTENT_TYPE, "text/plain");
+		request.addHeader("Content-Length", Reticulum.Parser.Enum.SIP_HDR_CONTENT_LENGTH, len);
 		request.body = body;
 	} else if (method === "INVITE") {
 		request = this.uacore.createRequest(method);
@@ -468,8 +482,9 @@ UA.prototype.createRequest = function(method, subject, body) {
 		// request.contacts[0].uri.host.name = this.user;
 		// TODO: fix User-Agent header code to detect Phone app version and browser
 		request.addHeader("User-Agent", Reticulum.Parser.Enum.SIP_HDR_USER_AGENT, "Reticulum client 0.0.1 Chrome");
-		request.addHeader("Subject", Reticulum.Parser.Enum.SIP_HDR_SUBJECT, subject);
+		if (EXISTS(subject)) request.addHeader("Subject", Reticulum.Parser.Enum.SIP_HDR_SUBJECT, subject);
 		request.addHeader("Content-Type", Reticulum.Parser.Enum.SIP_HDR_CONTENT_TYPE, "application/sdp");
+		request.addHeader("Content-Length", Reticulum.Parser.Enum.SIP_HDR_CONTENT_LENGTH, len);
 		request.body = body;
 	} else if (method === "BYE") {
 		request = this.uacore.createRequest(method);
@@ -651,7 +666,7 @@ console.log("SEND CANCEL");
 		} else {
 			this.setState("TERMINATING");
 console.log("SEND BYE");
-			this.uacore.sendRequest(this.createRequest("BYE"));
+			this.uacore.sendRequest(this.uacore.createRequest("BYE"));
 			//this._ua.sendRequest(this._ua.createRequest("BYE"));
 		}
 

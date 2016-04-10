@@ -643,8 +643,10 @@ Reticulum.Parser.parseContact = function(data) {
 	var contact = new Reticulum.SIP.Contact();
 
 	contact.address = this.parseAddress(data);
+// console.log("parse Contact", contact.address.params);
 
-	contact.expires = contact.address.params.expires;
+	if (contact.address !== null && contact.address.params !== null)
+		contact.expires = contact.address.params.expires;
 
 	return contact;
 };

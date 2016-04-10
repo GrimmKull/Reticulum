@@ -466,6 +466,8 @@ Reticulum.SIP.Message.prototype.toString = function() {
 		string += "Record-Route: " + record_route.toString() + "\r\n";
 	}
 
+console.log("TO_S", this.contentType, this.contentLength, this.content);
+
 	if (EXISTS(this.maxForwards)) string += "Max-Forwards: " + this.maxForwards + "\r\n";
 	if (EXISTS(this.contentType)) string += "Content-Type: " + this.contentType.toString() + "\r\n";
 	if (EXISTS(this.contentLength)) string += "Content-Length: " + this.contentLength + "\r\n";

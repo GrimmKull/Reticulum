@@ -13,11 +13,15 @@
 	<script type="text/javascript" src="rtculum.js"></script>
 	<!-- <script type="text/javascript" src="reticulum_phone.js"></script> -->
 
-	<link rel="stylesheet" href="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.blue_grey-red.min.css">
+	<!-- <link rel="stylesheet" href="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.blue_grey-red.min.css">
 	<script src="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.min.js"></script>
 	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
 
-	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css"> -->
+
+	<link rel="stylesheet" href="/ui/material.blue_grey-red.min.css">
+	<link rel="stylesheet" href="/ui/font-awesome.min.css">
+	<script src="/ui/material.min.js"></script>
 
 	<link rel="shortcut icon" href="icons/fav_icon.ico">
 
@@ -128,26 +132,24 @@ video {
 
 				<footer class="mdl-mini-footer">
 					<div class="mdl-mini-footer--left-section">
-						<button class="mdl-mini-footer--social-btn social-btn social-btn__twitter">
+						<a class="mdl-mini-footer--social-btn social-btn__share" href="https://twitter.com/GrimmKull">
 							<i class="fa fa-twitter"></i>
 							<span class="visuallyhidden">Twitter</span>
-						</button>
-						<button class="mdl-mini-footer--social-btn social-btn social-btn__gplus">
+						</a>
+						<a class="mdl-mini-footer--social-btn social-btn__share" href="https://plus.google.com/+SanjinLisic">
 							<i class="fa fa-google-plus"></i>
 							<span class="visuallyhidden">Google Plus</span>
-						</button>
-						<button class="mdl-mini-footer--social-btn social-btn social-btn__blogger">
+						</a>
+						<a class="mdl-mini-footer--social-btn social-btn__share" href="https://github.com/GrimmKull">
 							<i class="fa fa-github"></i>
 							<span class="visuallyhidden">Github</span>
-						</button>
+						</a>
 					</div>
 					<div class="mdl-mini-footer--right-section">
-						<button class="mdl-mini-footer--social-btn social-btn__share">
-							<!-- <i class="material-icons" role="presentation">share</i> -->
-							<!-- <i class="fa fa-share-alt"></i> -->
+						<a class="mdl-mini-footer--social-btn social-btn__share" href="mailto:sanjinlisic@outlook.com">
 							<i class="fa fa-envelope"></i>
-							<span class="visuallyhidden">share</span>
-						</button>
+							<span class="visuallyhidden">email</span>
+						</a>
 					</div>
 				</footer>
 			</main>
@@ -193,9 +195,9 @@ video {
 		document.getElementById("call").onclick = function() {
 			var remote = "";
 			if (remoteElement.value.indexOf("@") !== -1)
-				remote = '<sips:'+ remoteElement.value + '>';
+				remote = '<sip:'+ remoteElement.value + '>';
 			else
-				remote = '<sips:'+ remoteElement.value + '@' + realm + ':' + port + '>', ""
+				remote = '<sip:'+ remoteElement.value + '@' + realm + ':' + port + '>', ""
 
 			webphone.call(remote);
 		}

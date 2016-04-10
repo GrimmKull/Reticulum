@@ -91,7 +91,7 @@ module Reticulum
 
 				via = @via[1] if @via.length >= 2 && @via.first.host.name == Proxy.proxyip
 
-				p [ "CONTEXT ID:", via.params["branch"], via.transport, via.host.name, via.host.port.to_s, @callid, @cseq.number ]
+				#p [ "CONTEXT ID:", via.params["branch"], via.transport, via.host.name, via.host.port.to_s, @callid, @cseq.number ]
 				#return [via.params.branch, via.protocol, via.host, via.port, msg.headers['call-id'], msg.headers.cseq.seq];
 				return [via.params["branch"], via.transport, via.host.name, via.host.port.to_s, @callid, @cseq.number].join
 			end
@@ -102,30 +102,30 @@ module Reticulum
 
 			       if @contacts.first.address.uri.host.name.end_with? '.invalid'
 			           contact = @contacts.shift
-p "1", contact.to_s
-			        #    dname = contact.address.dname
-			        #    scheme = contact.address.uri.scheme
-			        #    user = contact.address.uri.user
-			        #    server = proxyip
-					#    server += ":" + proxyport unless proxyport.empty?
-					   #
-			        #    dname = dname.quote if dname.include? " "
-					   #
-			        #    # TODO: add params for Address => transport=tcp;ws-src-ip=37.203.111.230;ws-src-port=14368;ws-src-proto=wss
-			        #    aparams = "transport=tcp;ws-src-ip=" + address + ";ws-src-port=" + port.to_s + ";ws-src-proto=wss"
-					contact.address.params["transport"] = "tcp"
-					contact.address.params["ws-src-ip"] = address
-					contact.address.params["ws-src-port"] = port.to_s
-					contact.address.params["ws-src-proto"] = "wss"
 
-					contact.address.uri.host.name = proxyip
-					contact.address.uri.host.port = proxyport
-					   #
-			        #    # TODO: add params for contact => expires, received
-			        #    cparams = ";expires=" + contact.address.params["expires"]
-					   #
-			        #    contact = Reticulum::Parser::ParseContact(dname + " <" + scheme + ":" + user + "@" + server + aparams + ">" + cparams)
-p "2", contact.to_s
+				        #    dname = contact.address.dname
+				        #    scheme = contact.address.uri.scheme
+				        #    user = contact.address.uri.user
+				        #    server = proxyip
+						#    server += ":" + proxyport unless proxyport.empty?
+						   #
+				        #    dname = dname.quote if dname.include? " "
+						   #
+				        #    # TODO: add params for Address => transport=tcp;ws-src-ip=37.203.111.230;ws-src-port=14368;ws-src-proto=wss
+				        #    aparams = "transport=tcp;ws-src-ip=" + address + ";ws-src-port=" + port.to_s + ";ws-src-proto=wss"
+						contact.address.params["transport"] = "tcp"
+						contact.address.params["ws-src-ip"] = address
+						contact.address.params["ws-src-port"] = port.to_s
+						contact.address.params["ws-src-proto"] = "wss"
+
+						contact.address.uri.host.name = proxyip
+						contact.address.uri.host.port = proxyport
+						   #
+				        #    # TODO: add params for contact => expires, received
+				        #    cparams = ";expires=" + contact.address.params["expires"]
+						   #
+				        #    contact = Reticulum::Parser::ParseContact(dname + " <" + scheme + ":" + user + "@" + server + aparams + ">" + cparams)
+
 			           @contacts.unshift contact
 			       end
 			   end
@@ -156,8 +156,8 @@ p "2", contact.to_s
 
 						string += @method + " " + remote + " " + @version
 					else
-						p [ "[RESP TO $]", @version , @statusCode.to_s , @reason]
-						p [ "Error stringify msg.", self ] if @statusCode.nil?
+						#p [ "[RESP TO $]", @version , @statusCode.to_s , @reason]
+						#p [ "Error stringify msg.", self ] if @statusCode.nil?
 
 						@statusCode = 0 if @statusCode.nil?
 						@reason = "Unknown reason" if @reason.nil?
@@ -198,7 +198,7 @@ p "2", contact.to_s
 					string += "Expires: " + @expires.to_s + "\r\n" unless @expires.nil?
 
 					@headers.each { |key, header|
-						p ["HEADERS", key, header]
+						#p ["HEADERS", key, header]
 						if header.kind_of? (Array)
 							header.each { |h|
 								# if h.name == "Via"
@@ -932,7 +932,7 @@ p "2", contact.to_s
 			def to_s
 				port = ""
 
-				port = ":" + @port unless @port.empty?
+				port = ":" + @port unless @port.nil? || @port.empty?
 
 				return "[#{@name}]" + port if @ipv6
 
@@ -1368,8 +1368,6 @@ p "2", contact.to_s
 
 				return nil if message.uri.nil?
 			else
-p ["PARSER TOP", result]
-
 				message.version = result[1]
 				message.statusCode = result[2].to_i
 				message.reason = result[3]

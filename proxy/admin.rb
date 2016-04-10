@@ -27,13 +27,13 @@ class Admin
     def logMessage message, bIn, remote
         #p ["GOT", message.request? ? message.method : message.statusCode, "from", remote.name]
 
-        p [message.to_s]
+        #p [message.to_s]
 
-        p [message.statusCode, message.reason, message.method]
+        #p [message.statusCode, message.reason, message.method]
 
-method = message.method
+        method = message.method
 
-method = message.statusCode.to_s + " " + message.reason unless message.request?
+        method = message.statusCode.to_s + " " + message.reason unless message.request?
 
         send JSON.generate({
             :type => "message",
