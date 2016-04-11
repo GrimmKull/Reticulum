@@ -197,7 +197,7 @@ video {
 			if (remoteElement.value.indexOf("@") !== -1)
 				remote = '<sip:'+ remoteElement.value + '>';
 			else
-				remote = '<sip:'+ remoteElement.value + '@' + realm + ':' + port + '>', ""
+				remote = '<sip:'+ remoteElement.value + '@' + realm + '>', ""
 
 			webphone.call(remote);
 		}

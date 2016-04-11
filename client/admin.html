@@ -369,11 +369,15 @@ var diagram = Diagram.parse(d1);
 diagram.drawSVG("diagram1", {theme: 'hand'});
 
 var protocol = "wss"
-// var realm = "reticulum.local"; // location.hostname;
-var realm = location.hostname;
-var port = 7000; // location.port;
 
-var ws = new WebSocket(protocol + "://" + realm + ":" + port, "admin");
+var realm = location.hostname;
+var port = location.port;
+
+var server = realm;
+if (port !== "") server += ":" + port;
+
+var ws = new WebSocket(protocol + "://" + server + "/ws", "admin");
+
 //console.log("[CONNECT]");
 //console.log("Socket state:", this.ws.readyState);
 

@@ -26,7 +26,10 @@ Transport.prototype.isReliable = function() {
 
 Transport.prototype.connect = function() {
 	//try {
-		this.ws = new WebSocket(this.protocol + "://" + this.server + ":" + this.port + "/ws", "sip");
+		var server = this.server;
+		if (this.port !== "") server += ":" + this.port;
+
+		this.ws = new WebSocket(this.protocol + "://" + server + "/ws", "sip");
 		console.log("[CONNECT]");
 		//console.log("Socket state:", this.ws.readyState);
 
