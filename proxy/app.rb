@@ -363,7 +363,6 @@ class Transaction
                         transport(@request)
                     }
                 end
-                # TODO: Check if this periodic timer creates a loop
                 @f = EventMachine::PeriodicTimer.new(32000/SEC) {
                     #setTimeout(function() { sm.signal('timerF'); }, 32000);
                     puts "timer F"
@@ -621,7 +620,6 @@ class Sip
         # NOTE: remove VIA for this proxy from response
 		response.shiftVia
         # puts "[CALLABLE 2]", response.to_s
-        # TODO: Check if Proxy or Sip send!!!
         Sip.send(response)
     end
 
@@ -701,10 +699,7 @@ class Sip
                 message.via = [] unless message.via.kind_of? (Array)
 
                 message.unshiftRecordRoute("<sip:" + Proxy.proxyip + ":" + Proxy.proxyport + ";lr>")
-                # TODO: add this proxy Via header
-                #if(message.via.length == 0)
                 message.unshiftVia("SIP/2.0/WSS " + Proxy.proxyip + ":" + Proxy.proxyport + ";branch=" + Transaction.generateBranch())
-                #end
 
                 if(addresses.length == 0)
                     #p [ "ERROR", "no addresses" ]
@@ -1090,7 +1085,6 @@ class Proxy
                         if !Utils.authenticateRequest(userinfo, request)
                             Sip.send(Utils.challenge(userinfo.session, Sip.makeResponse(request, 401, "Authentication Required")));
                         else
-                            # TODO: Replace following lines with registration store save
                             contacts = request.contacts
                             contacts = [contacts] unless contacts.kind_of?(Array)
 
@@ -1140,7 +1134,7 @@ class Proxy
                 else
 					if !Storage.bindings[user].nil? && !Storage.bindings[user].empty?
                     # if !Storage.users[user].nil?
-                        # TODO: Replace following line with registration store load
+
                         # request.uri = Storage.users[user].uri
 						#p [ "URI contact", Storage.bindings[user].values.first ]
                         request.uri = Storage.bindings[user].values.first.contact.address.uri

@@ -18,7 +18,7 @@ wss://ns313841.ovh.net:14062
 **Username:** bob_retic@sip2sip.info
 **Password:** bpass
 
-## SIPml5 Testing with
+## SIPml5 Testing with Reticulum Proxy
 
 [SIPml5](https://www.doubango.org/sipml5/call.htm?svn=250#)
 
@@ -43,18 +43,20 @@ wss://ns313841.ovh.net:14062
 **Realm*:** reticulum.local
 
 
+## JsSIP Testing with Reticulum Proxy
+
 ## RFCs
 
-https://tools.ietf.org/html/rfc3261
-https://tools.ietf.org/html/rfc3665
-https://tools.ietf.org/html/rfc6026
+[RFC3261](https://tools.ietf.org/html/rfc3261)
+[RFC3665](https://tools.ietf.org/html/rfc3665)
+[RFC6026](https://tools.ietf.org/html/rfc6026)
 https://tools.ietf.org/html/draft-ietf-sipcore-sip-websocket-09
-https://tools.ietf.org/html/rfc7118
+[RFC7118](https://tools.ietf.org/html/rfc7118)
 
-http://tools.ietf.org/html/rfc6455
+[RFC6455](http://tools.ietf.org/html/rfc6455)
 
-https://tools.ietf.org/html/rfc4028
-https://tools.ietf.org/html/rfc5658
+[RFC4028](https://tools.ietf.org/html/rfc4028)
+[RFC5658](https://tools.ietf.org/html/rfc5658)
 
 https://tools.ietf.org/html/draft-kaplan-rtcweb-sip-interworking-requirements-02
 

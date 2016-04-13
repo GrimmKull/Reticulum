@@ -111,8 +111,6 @@ module Reticulum
 						   #
 				        #    dname = dname.quote if dname.include? " "
 						   #
-				        #    # TODO: add params for Address => transport=tcp;ws-src-ip=37.203.111.230;ws-src-port=14368;ws-src-proto=wss
-				        #    aparams = "transport=tcp;ws-src-ip=" + address + ";ws-src-port=" + port.to_s + ";ws-src-proto=wss"
 						contact.address.params["transport"] = "tcp"
 						contact.address.params["ws-src-ip"] = address
 						contact.address.params["ws-src-port"] = port.to_s
@@ -120,11 +118,6 @@ module Reticulum
 
 						contact.address.uri.host.name = proxyip
 						contact.address.uri.host.port = proxyport
-						   #
-				        #    # TODO: add params for contact => expires, received
-				        #    cparams = ";expires=" + contact.address.params["expires"]
-						   #
-				        #    contact = Reticulum::Parser::ParseContact(dname + " <" + scheme + ":" + user + "@" + server + aparams + ">" + cparams)
 
 			           @contacts.unshift contact
 			       end
@@ -291,7 +284,6 @@ module Reticulum
 
 				# parse common headers
 				case id
-					# TODO: fix issues with multiple VIA headers
 					when Parser::HEADERS.index('SIP_HDR_VIA')
 						@via = [] if @via.nil?
 						@via = [] unless @via.kind_of? (Array)
@@ -308,7 +300,6 @@ module Reticulum
 						@contacts = [] if @contacts.nil?
 						@contacts = [] unless @contacts.kind_of? (Array)
 
-						# TODO: Fix duplicate contacts when Header has comma separated data
 						# NOTE: encode commas and special characters in commented content
 						data = data.split('"',-1).map.with_index { |x, i| (i%2 == 1) ? Base64.encode64(x) : x }.join('"')
 

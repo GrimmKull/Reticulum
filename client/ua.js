@@ -8,9 +8,6 @@ var AuthInfo = function(username, password) {
 	this.nc = 0;
 };
 
-var enable = function(id) { document.getElementById(id).classList.remove("mdl-button--disabled");};
-var disable = function(id) { document.getElementById(id).classList.add("mdl-button--disabled");};
-
 var Phone = function(autorespond, autodecline, authinfo, realm, port, protocol) {
 	// this.transport = new Transport(this, realm, port, 'ws');
 	this.transport = new Transport(this, realm, port, protocol);
@@ -84,31 +81,31 @@ Phone.prototype._setState = function (state) {
 	console.log("[P state] from:", this.state, ", to:", state)
 	if (EXISTS(this._ua)) console.log("[UA state]", this._ua.state)
 
-	var lbl = document.getElementById("phone-state");
-
-	disable("reg");
-	disable("connect");
-	disable("call");
-	disable("answer");
-	disable("reject");
-	disable("hangup");
+	UI.disable("reg");
+	UI.disable("connect");
+	UI.disable("call");
+	UI.disable("answer");
+	UI.disable("reject");
+	UI.disable("hangup");
 
 	if (state === "IDLE") {
-		lbl.innerText = "AVAILABLE";
-		enable("call");
+		UI.setLabel("AVAILABLE");
+		UI.enable("call");
 	} else if (state === "PROCEEDING") {
-		lbl.innerText = "RINGING";
-		enable("answer");
-		enable("reject");
+		UI.setLabel("RINGING");
+		UI.enable("answer");
+		UI.enable("reject");
+	} else if (state === "PREPARING") {
+		UI.setLabel("PREPARING CALL");
 	} else if (state === "INVITING") {
-		lbl.innerText = "CALLING";
-		enable("reject");
+		UI.setLabel("CALLING");
+		UI.enable("reject");
 	} else if (state === "ACTIVE") {
-		lbl.innerText = "ON CALL";
-		enable("hangup");
+		UI.setLabel("ON CALL");
+		UI.enable("hangup");
 	} else if (state === "ACCEPTED") {
-		lbl.innerText = "ON CALL";
-		enable("hangup");
+		UI.setLabel("ON CALL");
+		UI.enable("hangup");
 	} else if (state === "CONFIRMED") {
 	} else if (state === "COMPLETED") {
 	} else if (state === "TERMINATING") {
@@ -118,9 +115,9 @@ Phone.prototype._setState = function (state) {
 		}
 	} else if (state === "TERMINATED") {
 	} else {
-		lbl.innerText = "UNAVAILABLE";
-		enable("reg");
-		enable("connect");
+		UI.setLabel("UNAVAILABLE");
+		UI.disable("reg");
+		UI.enable("connect");
 	}
 
 	if (this.regState === "REGISTERED") {
@@ -130,14 +127,14 @@ Phone.prototype._setState = function (state) {
 	} else if (this.regState === "UNREGISTERING") {
 		;
 	} else if (this.regState === "UNREGISTERED") {
-		enable("reg");
-		enable("connect");
-		disable("call");
-		disable("answer");
-		disable("reject");
-		disable("hangup");
+		UI.enable("reg");
+		UI.disable("connect");
+		UI.disable("call");
+		UI.disable("answer");
+		UI.disable("reject");
+		UI.disable("hangup");
 
-		lbl.innerText = "UNREGISTERED";
+		UI.setLabel("UNREGISTERED");
 	}
 
 	this.state = state;
@@ -218,9 +215,8 @@ Phone.prototype.onInvite = function(ua, request) {
 //				this.close();
 			}
 
-			// TODO: Add contact header ???
 			this._ua.setState("PROCEEDING");
-			//console.log("[INVITE UA]", ua);
+
 			ua.sendResponse(ua.transaction.createResponse(180, "Ringing"));
 
 			this._ua.uacore = ua;
@@ -315,6 +311,7 @@ Phone.prototype.register = function() {
 };
 
 Phone.prototype.call = function(to, uri) {
+	this._setState("PREPARING");
 	//this.ua.sendInvite(to, uri);
 	this.media.makeOffer(to, uri);
 };
@@ -607,9 +604,8 @@ UA.prototype.onRequest = function(ua, request) {
 				ua.sendResponse(ua.createResponse(488, "Incompatible SDP"));
 				//this.close();
 			} else if (this.autorespond) {
-				console.log("AUTORESPOND to Call from", request.from.dname, request.from.uri.user);
+				// console.log("AUTORESPOND to Call from", request.from.dname, request.from.uri.user);
 				//this.sendLater(this.delay, this.autoRespond);
-				// TODO: SEND 200 OK with delay. Make sure that it's not sent twice
 			}
 		} else {
 			ua.sendResponse(ua.createResponse(486, "Busy Here"));

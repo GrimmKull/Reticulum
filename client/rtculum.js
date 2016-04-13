@@ -93,20 +93,13 @@ function HashTable(obj)
 
 var Message = {};
 
-Message.createRequest = function(method, uri) {//, headers, content) {
+Message.createRequest = function(method, uri) {
     //console.log("CREATE:", method, "request");
     var message = new Reticulum.SIP.Message();
 	message.isRequest = true;
     message.method = method;
 	message.uri = uri;
 	message.version = "SIP/2.0";
-
-	// TODO: check if headers are being sent and go through them all one by one
-	// if (EXISTS(headers)) console.log("ADD HEADERS");
-	// if (EXISTS(content)) message.body = content;
-
-    // if (EXISTS(message.cseq) && message.cseq.method !== method)
-	// 	message.addHeader("CSeq", Reticulum.Parser.Enum.SIP_HDR_CSEQ, message.cseq.number + ' ' + method);
 
     return message;
 };
@@ -369,7 +362,6 @@ Stack.prototype.handleRequest = function(message, uri) {
 				layer = dialog;
 			}
 		} else if (message.method !== "CANCEL") {
-			// TODO: check if UA exists here or do we need to create one
 			core = this.createServer(message, uri);//this.ua;//createUA(message);
 
 			if (EXISTS(core)) {
@@ -503,9 +495,9 @@ Stack.prototype.authenticate = function(ua, header) {
 };
 
 // TODO: implement Timers
-Stack.prototype.createTimer = function(obj) {
+Stack.prototype.createTimer = function(name, obj) {
 // 	return this.app.createTimer(obj, this);
-	return new Timer(obj);
+	return new Timer(name, obj);
 };
 
 Stack.prototype.findDialog = function(arg) {
@@ -742,9 +734,10 @@ Transaction.prototype.startTimer = function(name, timeout) {
 	if (timeout <= 0) return;
 
 	var timer = this.timers.getItem(name);
+
 	if (!EXISTS(timer)) {
 		// TODO: fix timer creation
-		timer = this.stack.createTimer(this);
+		timer = this.stack.createTimer(name, this);
 		this.timers.setItem(name, timer);
 	}
 
@@ -758,14 +751,19 @@ Transaction.prototype.stopTimers = function() {
 	this.timers.clear();
 };
 
-Transaction.prototype.timedout = function(timer) {
-	if (timer.isRunning()) timer.stop();
+Transaction.prototype.timedout = function(name) {
+	// if (timer.isRunning()) timer.stop();
 
-	var t = this.findTimer(timer);
+	var timer = this.timers.getItem(name);
+	console.log("%cTimer: " + name, "background: #222; color: red;");
+	console.log("%cTransaction Timedout " + name, "background: #222; color: #bada55; padding: 5px;");
 
-	if (EXISTS(t)) {
-		this.timeout(t, timer.delay);
-		t.delete();
+	if (EXISTS(timer)) {
+		if (timer.isRunning()) timer.stop();
+console.log("Timer timedout", name, timer.delay);
+		this.timeout(name, timer.delay);
+		//timer.delete();
+		this.timers.removeItem(name);
 	}
 };
 
@@ -791,17 +789,22 @@ var TimerConfs = function(t1, t2, t4) {
 	this.K = this.I;
 };
 
-var Timer = function(obj) {
+var Timer = function(name, obj) {
+	this.name = name;
 	this.ticker = null;
+
+	var self = this;
+
 	this.callback = function () {
 		// TODO: make sure that timedout is called and that the ticker is set to null
-		obj.timedout();
+		obj.timedout(self.name);
 		// NOTE: this might not be necessary since timer might be null on timeout by default
-		this.ticker = null;
+		self.ticker = null;
 	};
 };
 
 Timer.prototype.start = function (timeout) {
+	this.delay = timeout;
 	this.ticker = window.setTimeout(this.callback, timeout);
 };
 
@@ -811,7 +814,7 @@ Timer.prototype.stop = function () {
 };
 
 Timer.prototype.isRunning = function() {
-	return ticker !== null;
+	return this.ticker !== null;
 };
 
 var ClientTransaction = function() {
@@ -856,6 +859,7 @@ ClientTransaction.prototype.onResponse = function(response) {
 };
 
 ClientTransaction.prototype.timeout = function(name, timeout) {
+	console.log("ClientTransaction timeout");
 	if (this.state === "TRYING" || this.state === "PROCEEDING") {
 		if (name === "E") {
 			if (this.state == "TRYING")
@@ -906,6 +910,7 @@ ServerTransaction.prototype.onRequest = function(request) {
 };
 
 ServerTransaction.prototype.timeout = function(name, timeout) {
+	console.log("ServerTransaction timeout");
 	if (this.state === "COMPLETED")
 		if (name === "J") this.setState("TERMINATED");
 };
@@ -986,6 +991,7 @@ InviteClientTransaction.prototype.onResponse = function(response) {
 };
 
 InviteClientTransaction.prototype.timeout = function(name, timeout) {
+	console.log("InviteClientTransaction timeout");
 	if (this.state === "CALLING") {
 		if (name === "A") {
 			this.startTimer("A", 2*timeout);
@@ -1075,6 +1081,7 @@ InviteServerTransaction.prototype.onRequest = function(request) {
 };
 
 InviteServerTransaction.prototype.timeout = function(name, timeout) {
+	console.log("InviteServerTransaction timeout");
 	if (this.state === "COMPLETED") {
 		if (name === "G") {
 			this.startTimer("G", Math.min(2*timeout, this.timerconfs.t2));

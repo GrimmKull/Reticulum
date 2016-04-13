@@ -2,13 +2,15 @@
 
 WebRTC Webphone with SIP Proxy implemented on Raspberry Pi platform.
 
-![LOGO](https://raw.githubusercontent.com/GrimmKull/Reticulum/github/client/icons/dark%20icon_128.png)
+![LOGO](https://raw.githubusercontent.com/GrimmKull/Reticulum/master/client/icons/dark%20icon_128.png)
 
 ## Status
 
-![status](https://img.shields.io/badge/reticulum proxy-90%25%20done-brightgreen.svg?style=flat-square&logoWidth=30)
+![status](https://img.shields.io/badge/reticulum proxy-98%25%20done-brightgreen.svg?style=flat-square&logoWidth=30)
 
-![status](https://img.shields.io/badge/reticulum webphone-85%25%20done-green.svg?style=flat-square&logoWidth=5)
+![status](https://img.shields.io/badge/reticulum webphone-95%25%20done-green.svg?style=flat-square&logoWidth=5)
+
+Try it out at [reticulum.outbox.systems](https://reticulum.outbox.systems/?#).
 
 
 ## Launching SIP Proxy and Webphone static file hosting
@@ -92,15 +94,71 @@ This will create a file `reticulum_phone.js` in the `builds/build` folder. To us
 <script type="text/javascript" src="reticulum_phone.js"></script>
 ```
 
+## Using NGINX as reverse proxy
+
+If you checkout the code for Reticulum to `/var/www/` folder on your server you can use the following configuration to use NGINX as the proxy. NGINX will host your static files and proxy all WebSocket requests on https://your.comain.com/ws to Reticulum.
+
+```
+upstream reticulum {
+    server 0.0.0.0:7000;
+}
+
+server {
+    listen 443 ssl;
+
+    # The host name to respond to
+    server_name your.domain.com;
+
+    ssl_certificate /home/user/path_to_certs/certificates/your.domain.crt;
+    ssl_certificate_key /home/user/path_to_certs/certificates/your.domain.key;
+
+    # Logs
+    access_log /var/log/your.domain.log;
+
+    # Path for static files
+    root /var/www/reticulum/client;
+    index index.html;
+
+    #Specify a charset
+    charset utf-8;
+
+    # WS conf
+    location /ws {
+        proxy_pass https://reticulum/ws;
+        proxy_http_version 1.1;
+
+        add_header Access-Control-Allow-Origin *;
+
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Upgrade websocket;
+        proxy_set_header Connection Upgrade;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Sec-WebSocket-Protocol $http_sec_websocket_protocol;
+
+        proxy_read_timeout 86400;
+        proxy_redirect off;
+        break;
+    }
+}
+```
+
 ## Resources
 
- * [Faye WS](https://github.com/faye/faye-websocket-ruby)  
- * [P2P SIP](https://github.com/theintencity/p2p-sip)  
+ * [Faye WS](https://github.com/faye/faye-websocket-ruby)
+ * [P2P SIP](https://github.com/theintencity/p2p-sip)
  * [SIP.js](https://github.com/onsip/SIP.js)
- * [SIP](https://github.com/kirm/sip.js)  
+ * [SIP](https://github.com/kirm/sip.js)
  * [libre](http://www.creytiv.com/re.html)
  * [baresip](http://www.creytiv.com/baresip.html)
  * [sipml5](https://github.com/DoubangoTelecom/sipml5)
+ * [JsSIP](https://github.com/versatica/JsSIP)
+
+## JsSIP support and interoperability
+
+Reticulum supports JsSIP as client. You can use it communicate between different instances of JsSIP client and with Reticulum webphone. Use the configuration example bellow:
+
+![JsSIP config example](http://photos.lishich.com/figures/jssip_ana.jpg)
+
 
 ## STUN server issues
 

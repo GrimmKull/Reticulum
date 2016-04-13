@@ -1,8 +1,11 @@
 var gulp = require('gulp');
 var concat = require('gulp-concat');
+var rename = require('gulp-rename');
+var uglify = require('gulp-uglify');
 
 gulp.task('node', function() {
 	return gulp.src([
+			'../client/ui.js',
 			'../client/utils.js',
 			'../client/auth.js',
 			'../client/parser.js',
@@ -13,11 +16,15 @@ gulp.task('node', function() {
 			'../client/rtculum.js'
 		])
 		.pipe(concat("reticulum_node_phone.js"))
+		.pipe(gulp.dest('build'))
+		.pipe(rename('reticulum_node_phone.min.js'))
+        .pipe(uglify())
 		.pipe(gulp.dest('build'));
 });
 
 gulp.task('default', function() {
 	return gulp.src([
+			'../client/ui.js',
 			'../client/utils.js',
 			'../client/auth.js',
 			'../client/parser.js',

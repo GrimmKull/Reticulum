@@ -8,7 +8,6 @@ class Admin
     end
 
     def add ws
-        # TODO: add Admin connection
         @admins.push ws
 
         # TODO: send current state (registered users and sip registration status, active calls, transactions, dialogs, contexts)
