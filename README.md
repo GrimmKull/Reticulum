@@ -12,6 +12,13 @@ WebRTC Webphone with SIP Proxy implemented on Raspberry Pi platform.
 
 Try it out at [reticulum.outbox.systems](https://reticulum.outbox.systems/?#).
 
+## Browser support
+
+Currently Reticulum supports only the latest Chrome browser on desktop and mobile.
+
+Please note that mobile version still has same issues with website responsive layout and might be difficult to use.
+
+Firefox and Opera support coming soon.
 
 ## Launching SIP Proxy and Webphone static file hosting
 
@@ -79,10 +86,10 @@ Inside the builds folder run the following commands:
 
 ```
 npm install gulp
-npm install gulp-concat
+npm install gulp-concat gulp-rename gulp-uglify
 ```
 
-To start the default `gulp` task call:
+To start the default `gulp` task and concatenate all JavaScript files call:
 
 ```
 gulp
@@ -94,9 +101,21 @@ This will create a file `reticulum_phone.js` in the `builds/build` folder. To us
 <script type="text/javascript" src="reticulum_phone.js"></script>
 ```
 
+
+To create a single uglified Javascript file with null media call:
+
+```
+gulp node
+```
+
+This will create a file `reticulum_node_phone.min.js` in the `builds/build` folder.
+
+**NOTE:** Null media build can be used for testing the SIP stack since it will not reference the WebRTC and media components nor will it add SDP payload to SIP messages.
+
 ## Using NGINX as reverse proxy
 
-If you checkout the code for Reticulum to `/var/www/` folder on your server you can use the following configuration to use NGINX as the proxy. NGINX will host your static files and proxy all WebSocket requests on https://your.comain.com/ws to Reticulum.
+If you checkout the code for Reticulum to `/var/www/` folder on your server you can use the following configuration to use NGINX as the proxy. NGINX will host your static files and proxy all WebSocket requests on https://your.comain.com/ws to Reticulum. To see an example of this configuration in action go to [reticulum.outbox.systems](https://reticulum.outbox.systems/?#).
+
 
 ```
 upstream reticulum {
@@ -155,14 +174,34 @@ server {
 
 ## JsSIP support and interoperability
 
-Reticulum supports JsSIP as client. You can use it communicate between different instances of JsSIP client and with Reticulum webphone. Use the configuration example bellow:
+To test the JsSIP support go to [tryit.jssip.net](https://tryit.jssip.net/)
+
+**WARNING:** Handshake errors with WebSocket connection in JsSIP you may encounter are probably caused by the fact you are using a different, possibly unsigned, certificate with your Reticulum proxy then the one on [tryit.jssip.net](https://tryit.jssip.net/). This error usually appears on OSX.
+
+Reticulum supports JsSIP as a client. You can use it to communicate between different instances of JsSIP client and with Reticulum webphone. Use the example bellow
 
 ![JsSIP config example](http://photos.lishich.com/figures/jssip_ana.jpg)
+
+as a configuration template.
+
+## sipml5 support and interoperability
+
+To test the sipml5 support go to [sipml5 call](https://www.doubango.org/sipml5/call.htm?svn=250)
+
+**WARNING:** Handshake errors with WebSocket connection in sipml5 you may encounter are probably caused by the fact you are using a different, possibly unsigned, certificate with your Reticulum proxy then the one on [sipml5 call](https://www.doubango.org/sipml5/call.htm?svn=250). This error usually appears on OSX.
+
+Reticulum supports sipml5 as a client. You can use it to communicate between different instances of sipml5 client and with Reticulum webphone. Use the examples bellow as a configuration template.
+
+![sipml5 config example](http://photos.lishich.com/figures/sipml5_ana.jpg)
+
+To configure sipml5 to use Websocket connection to an instance of Reticulum proxy click on the **Expert mode?** button and use the following example configuration:
+
+![sipml5 advanced config example](http://photos.lishich.com/figures/sipml5_settings.jpg)
 
 
 ## STUN server issues
 
-[Trickle example ](http://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/)
+[Trickle example](http://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/)
 
 To test total time for ICE candidates look at the link above.
 

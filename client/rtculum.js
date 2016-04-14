@@ -1,4 +1,3 @@
-
 //var SIP = {};
 var EXISTS = function(obj) {
 	if (obj === undefined) return false;

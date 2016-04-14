@@ -194,30 +194,30 @@ class Transaction
     def self.transactionId(message)
         via = message.via.first
 
-        if message.statusCode == 481
-            id = "|"
-            if message.method == 'ACK'
-                id = "ACK ID", ['INVITE', message.callid, via.params["branch"]].join
-            else
-                id = "ID", [message.cseq.method, message.callid, via.params["branch"]].join
-            end
-
-            puts id
-            puts ""
-
-            @@c_trans.each { |key, trans|
-                puts "c", key, trans
-            }
-
-            @@s_trans.each { |key, trans|
-                puts "s", key, trans
-            }
-
-            puts "ct", @@c_trans[id]
-            puts "st", @@s_trans[id]
-
-            raise '481'
-        end
+        # if message.statusCode == 481
+        #     id = "|"
+        #     if message.method == 'ACK'
+        #         id = "ACK ID", ['INVITE', message.callid, via.params["branch"]].join
+        #     else
+        #         id = "ID", [message.cseq.method, message.callid, via.params["branch"]].join
+        #     end
+        #
+        #     puts id
+        #     puts ""
+        #
+        #     @@c_trans.each { |key, trans|
+        #         puts "c", key, trans
+        #     }
+        #
+        #     @@s_trans.each { |key, trans|
+        #         puts "s", key, trans
+        #     }
+        #
+        #     puts "ct", @@c_trans[id]
+        #     puts "st", @@s_trans[id]
+        #
+        #     raise '481'
+        # end
         return ['INVITE', message.callid, via.params["branch"]].join if message.method == 'ACK'
 #p [ "||", message, "||" ]
         return [message.cseq.method, message.callid, via.params["branch"]].join
@@ -416,15 +416,9 @@ class Transaction
 
                 @ack._addHeader("To", msg.to.to_s)
 
-                # TODO: unshift top VIA with correct branch
-                # @ack.unshiftVia("SIP/2.0/WSS " + Proxy.proxyip + ":" + Proxy.proxyport + ";branch=" + Transaction.generateBranch())
-                #top_via = @ack.via.shift
-                # @ack.via = []
-                # @ack.via.unshift top_via
+                # NOTE: prevent ACK for 481 responses
+                transport(@ack) unless !msg.request? || msg.statusCode == 481
 
-                puts "send ACK for @req", @request.method, msg.request? ? "0" : msg.statusCode
-
-                transport(@ack)
                 @d = EventMachine::Timer.new(32000/SEC) {
                     changeState "terminated"
                 }
@@ -548,7 +542,8 @@ class Transaction
             elsif @type == "NON_SERVER"
                 transport(@response)
             elsif @type == "INV_CLIENT"
-                transport(@ack) unless remote.nil?
+                # NOTE: prevent sending of ACK on 481 response
+                transport(@ack) unless remote.nil? || msg.statusCode == 481
             end
         elsif @state == "accepted"
             if @type == "INV_CLIENT"
