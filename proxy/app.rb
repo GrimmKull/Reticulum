@@ -110,7 +110,7 @@ class Transport
 
         #p "<<<"
         ws = Transport.get remote
-        $logger.logMessage(message, false, ws.remote.name)
+        $logger.logMessage(message, false, ws.remote)
         ws.send message
 
         #p ["SENT?", ws.nil?, ws.ws.nil? , message.request? ? message.method : message.statusCode, "to", ws.remote.name]
@@ -322,7 +322,7 @@ class Transaction
 
     def transport message
         p [ "Trans transport", @type, "with state:", @state, message.request? ? "/" : message.statusCode, message.method, @connection.remote.nil? ? "" : @connection.remote.name ]
-        $logger.logMessage(message, false, @connection.remote.name)
+        $logger.logMessage(message, false, @connection.remote)
 
         @connection.send(message)
     end
@@ -416,8 +416,11 @@ class Transaction
 
                 @ack._addHeader("To", msg.to.to_s)
 
+                # NOTE: be extra careful if this ack is not sent the call might not be cancelled/rejected
                 # NOTE: prevent ACK for 481 responses
-                transport(@ack) unless !msg.request? || msg.statusCode == 481
+                if !(!msg.request? && msg.statusCode == 481)
+                    transport(@ack)
+                end
 
                 @d = EventMachine::Timer.new(32000/SEC) {
                     changeState "terminated"
@@ -543,7 +546,9 @@ class Transaction
                 transport(@response)
             elsif @type == "INV_CLIENT"
                 # NOTE: prevent sending of ACK on 481 response
-                transport(@ack) unless remote.nil? || msg.statusCode == 481
+                if msg.statusCode != 481
+                    transport(@ack) unless remote.nil?
+                end
             end
         elsif @state == "accepted"
             if @type == "INV_CLIENT"
@@ -734,7 +739,7 @@ class Sip
                 end
 
                 while addresses.length > 0
-                    # begin
+                    begin
                         # get first address from array
                         address = addresses.shift()
 
@@ -791,12 +796,12 @@ class Sip
                         # if any remote transport error send 503 response
                         #t.message(Sip.makeResponse(message, 503, "Service Unavailable"))
 
-                    # rescue
-                    # #     # NOTE: address is local if user is registered on this proxy
-                    # #     puts "Rescue to error 430 or 503"
-                    # 	local = true
-                    # 	Sip.handle(local ? Sip.makeResponse(message, 430, "Flow Failed") : Sip.makeResponse(message, 503, "Service Unavailable"));
-                    # end
+                    rescue
+                        # NOTE: address is local if user is registered on this proxy
+                        # puts "Rescue to error 430 or 503"
+                    	local = true
+                    	Sip.handle(local ? Sip.makeResponse(message, 430, "Flow Failed") : Sip.makeResponse(message, 503, "Service Unavailable"));
+                    end
                 end
 
             end
@@ -931,20 +936,31 @@ class Storage
 	# @@insertstmt
 
     def initialize
-		# NOTE: a few default users
-		@@users["sanjin"] = UserInfo.new "sanjin", "spass"
-		@@users["edo"] = UserInfo.new "edo", "epass"
-		@@users["bob"] = UserInfo.new "bob", "bpass"
-		@@users["ana"] = UserInfo.new "ana", "apass"
+        begin
+    		# NOTE: a few default users
+    		@@users["sanjin"] = UserInfo.new "sanjin", "spass"
+    		@@users["edo"] = UserInfo.new "edo", "epass"
+    		@@users["bob"] = UserInfo.new "bob", "bpass"
+    		@@users["ana"] = UserInfo.new "ana", "apass"
 
-		@@access = Mysql2::Client.new(:host => "localhost", :username => "root", :password => "test123")
-		@@insertstmt = @@access.prepare("INSERT INTO reticulum.user (name, email, password) VALUES (?,?,?)")
-		results = @@access.query("SELECT * FROM reticulum.user")
+    		@@access = Mysql2::Client.new(:host => "localhost", :username => "root", :password => "test123")
+    		@@insertstmt = @@access.prepare("INSERT INTO reticulum.user (name, email, password) VALUES (?,?,?)")
+    		results = @@access.query("SELECT * FROM reticulum.user")
 
-		results.each do |row|
-			@@users[row["name"]] = UserInfo.new row["name"], row["password"]
-			@@users[row["name"]].email = row["email"]
-		end
+    		results.each do |row|
+    			@@users[row["name"]] = UserInfo.new row["name"], row["password"]
+    			@@users[row["name"]].email = row["email"]
+    		end
+
+            # 1000.times { |x|
+            #     Storage.register("ana_" + x.to_s, "ana_" + x.to_s + "@reticulum.local", "apass")
+            #     Storage.register("bob_" + x.to_s, "bob_" + x.to_s + "@reticulum.local", "bpass")
+            # }
+        rescue
+            puts "Failed to access Proxy DB."
+            puts "Exiting Reticulum Proxy."
+            exit()
+        end
     end
 
     def self.contexts
@@ -1063,7 +1079,7 @@ class Proxy
 
             # TODO: fix potential issues with from user and contact user values being different
             #       which causes responses not to be routed correctly
-            # begin
+            begin
                 user = request.to.uri.user
 
 				if !['ACK', 'BYE', 'CANCEL', 'INVITE', 'MESSAGE', 'OPTIONS', 'REGISTER'].include? (request.method)
@@ -1147,11 +1163,11 @@ class Proxy
                         send(Sip.makeResponse(request, 404, "Not Found"))
 					end
 				end
-            # rescue
-            #     puts "[EXCEPTION 1]"
-            #     Storage.contexts.delete(id)
-			# 	send(Sip.makeResponse(request, 500, "Internal Server Error"))
-            # end
+            rescue
+                # puts "[EXCEPTION 1]"
+                Storage.contexts.delete(id)
+				send(Sip.makeResponse(request, 500, "Internal Server Error"))
+            end
         end
     end
 
@@ -1290,7 +1306,7 @@ App = lambda do |env|
 
             message = Reticulum::Parser::Parse event.data
 
-            $logger.logMessage(message, true, remote.name)
+            $logger.logMessage(message, true, remote)
 
             proxy.handle(message, remote)
         elsif ws.protocol == "admin"

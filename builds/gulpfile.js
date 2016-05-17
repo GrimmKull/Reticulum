@@ -5,11 +5,11 @@ var uglify = require('gulp-uglify');
 
 gulp.task('node', function() {
 	return gulp.src([
-			'../client/ui.js',
+			'../client/null_ui.js',
 			'../client/utils.js',
 			'../client/auth.js',
 			'../client/parser.js',
-			'../client/media_node.js',
+			'../client/null_media.js',
 			'../client/transport.js',
 			'../client/sip.js',
 			'../client/ua.js',
@@ -28,7 +28,7 @@ gulp.task('default', function() {
 			'../client/utils.js',
 			'../client/auth.js',
 			'../client/parser.js',
-			'../client/media2.js',
+			'../client/media.js',
 			'../client/transport.js',
 			'../client/sip.js',
 			'../client/ua.js',

@@ -127,17 +127,6 @@ Media.prototype.start = function() {
 	this.peerConnection.addStream(this.localStream);
 	this.peerConnection.onaddstream = this.gotRemoteStream;
 	this.peerConnection.onremovestream = this.onRemoveStream;
-
-	/*if (isCaller) {
-
-	} else {
-		this.peerConnection.createAnswer(this.gotDescription,
-			// Error
-			function(e) {
-				alert('createOffer() error: ' + e.name);
-			}
-        );
-	}*/
 };
 
 Media.prototype.makeOffer = function (to, uri) {
@@ -149,14 +138,6 @@ Media.prototype.makeOffer = function (to, uri) {
     this.peerConnection.createOffer(/*this.gotDescription*/
         function (description) {
 			self.peerConnection.setLocalDescription(description, function() {
-				/*serverConnection.send(JSON.stringify({
-					'sdp': description
-				}));*/
-				/*SIP.UA.transport.send(JSON.stringify({
-					'sdp': description
-				}));*/
-
-				/*console.log("----------SDP----------");*/
 				console.log("set local description");
 				self.localSDP = description.sdp;
 			});
@@ -179,14 +160,6 @@ Media.prototype.makeAnswer = function () {
     this.peerConnection.createAnswer(/*this.peerConnection.remoteDescription,/*this.gotDescription*/
         function (description) {
 			self.peerConnection.setLocalDescription(description, function() {
-				/*serverConnection.send(JSON.stringify({
-					'sdp': description
-				}));*/
-				/*SIP.UA.transport.send(JSON.stringify({
-					'sdp': description
-				}));*/
-
-				/*console.log("----------SDP----------");*/
 				console.log("set local description");
 				self.localSDP = description.sdp;
 			});

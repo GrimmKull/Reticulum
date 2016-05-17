@@ -1,20 +1,21 @@
 ///     \m/>_<\m/      ///
 
-var AuthInfo = function(username, password) {
+var AuthInfo = function(username, password, realm) {
 	this.user = username;
 	this.password = password;
 
-	this.realm = "reticulum";
+	this.realm = realm || "reticulum";
 	this.nc = 0;
 };
 
 var Phone = function(autorespond, autodecline, authinfo, realm, port, protocol) {
-	// this.transport = new Transport(this, realm, port, 'ws');
-	this.transport = new Transport(this, realm, port, protocol);
-	this.stack = new Stack(this, this.transport);
+	var self = this;
+
+	this.transport = new Transport(self, realm, port, protocol);
+	this.stack = new Stack(self, this.transport);
 	this.media = new Media(true, true);
-	console.log("Phone UA constructor", authinfo);
-	this._ua = new UA(this, this.stack, this.media, authinfo, realm);
+	//console.log("Phone UA constructor", authinfo);
+	this._ua = new UA(self, this.stack, this.media, authinfo, realm);
 	this.media.setVideoContainersIDs("localVideo", "remoteVideo");
 	this.media.getMedia();
 
@@ -22,29 +23,15 @@ var Phone = function(autorespond, autodecline, authinfo, realm, port, protocol) 
 	this.regState = "UNREGISTERED";
 	this._ua.setState("IDLE");
 
-	//this.inviteUA = null;
-
-	//var u = this._ua;
-	//var a = this.inviteUA;
-	var self = this;
-
 	// Media call handlers
 	this.media.handleOffer = function(to, uri, subject) {
 		self._ua.sendInvite(to, uri, subject);
 	};
-	//this.ua.sendInvite;
+
 	this.media.handleAnswer = function() {
-		//u.sendAnswer();
-		//if (!EXISTS(self.inviteUA)) return;
-		//self.inviteUA.sendResponse(self.inviteUA.createResponse(200, "OK", self.media.getLocalSDP(), "application/sdp"));
 		self._ua.uacore.sendResponse(self._ua.uacore.createResponse(200, "OK", self.media.getLocalSDP(), "application/sdp"));
 	};
 
-	// console.log(this.media.handleOffer);
-	// console.log(this.media.handleAnswer);
-
-	// NOTE: allow outbound not needed due to WebSocket connection
-	//this.hasOutbound = true; // false; // ??? don't allow outbound from server
 	this.autorespond = autorespond;
 	this.autodecline = autodecline;
 	// this.autohangup = true;
@@ -63,11 +50,12 @@ var Phone = function(autorespond, autodecline, authinfo, realm, port, protocol) 
 	this.server = realm + ":" + port;
 };
 
-Phone.prototype.setStateFromTransaction = function (type, oldstate, state, method) {
-	console.log(method, "request", type, "transaction state from:", oldstate, ", to:", state)
+Phone.prototype.setStateFromTransaction = function (type, oldstate, state, method, data) {
+	//console.log(method, "request", type, "transaction state from:", oldstate, ", to:", state)
 
 	if (type === "INV_SERVER" && oldstate === "PROCEEDING" && state === "COMPLETED") {
 		this._ua.setState("ACTIVE");
+		//this._ua.setState("IDLE");
 	} else if (type === "INV_SERVER" && oldstate === "COMPLETED" && state === "CONFIRMED" && method === "INVITE") {
 		this._ua.setState("IDLE");
 	} else if (type === "INV_CLIENT" && oldstate === "COMPLETED" && state === "TERMINATED" && method === "INVITE") {
@@ -75,11 +63,16 @@ Phone.prototype.setStateFromTransaction = function (type, oldstate, state, metho
 	} else if (this.state === "TERMINATING" && type === "NON_CLIENT" && method === "BYE" && oldstate === "TRYING" && state === "COMPLETED") {
 		this._ua.setState("IDLE");
 	}
+
+	//if (type === "INV_SERVER" || type === "INV_CLIENT") {
+		//(this.isServer && this.response) ? this.response.isFinal() : false
+		//console.log("%c" + method + type + " transaction: " + oldstate + "->" + state + " >> " + data.isServer + " | " + (data.response ? data.response.isFinal() : 0) + " | " + "data" + " | " + "data", "background: #222; color: green; padding: 5px;");
+	//}
 };
 
 Phone.prototype._setState = function (state) {
-	console.log("[P state] from:", this.state, ", to:", state)
-	if (EXISTS(this._ua)) console.log("[UA state]", this._ua.state)
+	//console.log("[P state] from:", this.state, ", to:", state)
+	//if (EXISTS(this._ua)) console.log("[UA state]", this._ua.state)
 
 	UI.disable("reg");
 	UI.disable("connect");
@@ -101,6 +94,7 @@ Phone.prototype._setState = function (state) {
 		UI.setLabel("CALLING");
 		UI.enable("reject");
 	} else if (state === "ACTIVE") {
+		// TODO: Fix issue with ACTIVE phone state when Call was Rejecte or Canceled
 		UI.setLabel("ON CALL");
 		UI.enable("hangup");
 	} else if (state === "ACCEPTED") {
@@ -140,6 +134,10 @@ Phone.prototype._setState = function (state) {
 	this.state = state;
 };
 
+Phone.prototype._setRegState = function(state) {
+	this.regState = state;
+};
+
 //Phone.prototype.wait = function() {};
 
 Phone.prototype.close = function() {
@@ -149,7 +147,6 @@ Phone.prototype.close = function() {
 Phone.prototype.onRequest = function(ua, request, stack) {
 	if (request.method === "MESSAGE") {
 		this.onMessage(ua, request);
-	//} else if (request.method === "INVITE") {
 	} else if (request.method === "INVITE" || request.method === "BYE" || request.method === "ACK") {
 		this.onInvite(ua, request);
 	} else {
@@ -159,21 +156,18 @@ Phone.prototype.onRequest = function(ua, request, stack) {
 
 Phone.prototype.onResponse = function(ua, request, stack) {
 	this._ua.onResponse(ua, request);
-	//this.onMessage(ua, request);
 };
 
 Phone.prototype.onMessage = function(ua, request) {
 	if (this.auto_respond) {
-		ua.sendResponse(ua.createResponse(/*this.auto_respond*/200, "OK"));
+		ua.sendResponse(ua.createResponse(200, "OK"));
 	} else if (this.autodecline) {
-		ua.sendResponse(ua.createResponse(/*this.auto_respond*/603, "Decline"));
+		ua.sendResponse(ua.createResponse(603, "Decline"));
 	}
 };
 
 Phone.prototype.onInvite = function(ua, request) {
-	console.log("There is an INVITE!!!", this.auto_respond, this.autorespond, this.autodecline);
-	// this.autorespond = false;
-	// this.autodecline = false;
+	//console.log("There is an INVITE!!!", this.auto_respond, this.autorespond, this.autodecline);
 
 	if (this.autodecline) {
 		ua.sendResponse(ua.createResponse(603, "Decline"));
@@ -205,9 +199,6 @@ Phone.prototype.onInvite = function(ua, request) {
 				console.log("No SDP in received INVITE");
 			}
 
-//			this.media = voip.MediaSession(app=this, streams=this._audio, request=req, listen_ip=this.options.int_ip, NetworkClass=rfc3550.gevent_Network) # create local media session
-			//this.media.getMedia();
-			//if (this.media.localSDP === null) {
 			if (this.media.getLocalSDP() === null) {
 				this._ua.setState("IDLE");
 
@@ -228,9 +219,15 @@ Phone.prototype.onInvite = function(ua, request) {
 					var self = this;
 					console.log("*** on auto answer hangup in 10s ***");
 
-					window.setTimeout(function() {
-						self._ua.closeCall();
-					}, 10*1000);
+					if (typeof window !== 'undefined' && window) {
+						window.setTimeout(function() {
+							self._ua.closeCall();
+						}, 10*1000);
+					} else {
+						setTimeout(function() {
+							self._ua.closeCall();
+						}, 10*1000);
+					}
 				}
 			}
 		} else {
@@ -246,7 +243,7 @@ Phone.prototype.onInvite = function(ua, request) {
 				this._ua.setState("IDLE");
 				ua.sendResponse(ua.createResponse(200, "OK"));
 			}
-			console.log("Close Dialog in Phone");
+			//console.log("Close Dialog in Phone");
 			//this._ua.uacore.close();
 			this._ua.closeCore();
 			//this.close();
@@ -254,12 +251,12 @@ Phone.prototype.onInvite = function(ua, request) {
 			ua.sendResponse(ua.createResponse(481, "Dialog Not Found"));
 		}
 	} else if (request.method === "ACK") {
-		console.log("Desparate check ACK", this._ua.uacore, ua)
+		//console.log("Desparate check ACK", this._ua.uacore, ua)
 		if (this._ua.uacore === ua) {
 			if (this.state === "ACCEPTED") {
 				this._ua.setState("ACTIVE");
 				if (request.getBody() && EXISTS(request.contentType) && request.contentType.subtype === "sdp") {
-					var sdp = request.getBody();//rfc4566.SDP(request.body);
+					var sdp = request.getBody();
 					if (this.media) {
 						this.media.setRemoteSDP(sdp);
 					} else {
@@ -352,13 +349,13 @@ var UA = function(app, stack, media, authinfo, domain) {
 };
 
 UA.prototype.setState = function(state) {
-	console.log("[UA state] from:", this.state, "to", state, "Phone state:", this.app.state );
+	//console.log("[UA state] from:", this.state, "to", state, "Phone state:", this.app.state, this.app_setState);//Object.prototype.toString.call(this.app));
 	this.state = state;
 	this.app._setState(state);
 };
 
 UA.prototype.setRegState = function(state) {
-	this.app.regState = state;
+	this.app._setRegState(state);
 };
 
 UA.prototype.onClose = function() {};
@@ -387,9 +384,15 @@ UA.prototype.refreshLater = function(delay, handler) {
 
 	var self = this;
 
-	window.setTimeout(function() {
-		handler.call(self);
-	}, interval*1000);
+	if (typeof window !== 'undefined' && window) {
+		window.setTimeout(function() {
+			handler.call(self);
+		}, interval*1000);
+	} else {
+		setTimeout(function() {
+			handler.call(self);
+		}, interval*1000);
+	}
 };
 
 UA.prototype.retryLater = function(handler) {
@@ -397,9 +400,15 @@ UA.prototype.retryLater = function(handler) {
 
 	var self = this;
 
-	window.setTimeout(function() {
-		handler.call(self);
-	}, interval*1000);
+	if (typeof window !== 'undefined' && window) {
+		window.setTimeout(function() {
+			handler.call(self);
+		}, interval*1000);
+	} else {
+		setTimeout(function() {
+			handler.call(self);
+		}, interval*1000);
+	}
 };
 
 UA.prototype.sendLater = function(message, delay) {
@@ -408,7 +417,7 @@ UA.prototype.sendLater = function(message, delay) {
 
 // NOTE: promote UA to Dialog
 UA.prototype.dialogCreated = function(dialog, ua) {
-	console.log("Promoting to dialog", this.uacore, this.uacore.app);
+	//console.log("Promoting to dialog", this.uacore, this.uacore.app);
 
 	this._oldcore = this.uacore;
 
@@ -435,7 +444,7 @@ UA.prototype.sendInvite = function(to, uri, subject) {
 	// request.from.params.tag = Utils.token(10, Utils.TOKEN_NUMERIC_32);
 	//request.addHeader("Call-ID", Reticulum.Parser.Enum.SIP_HDR_CALL_ID, this.stack.createCallID());
 
-console.log("UACORE on invite send", this.uacore);
+	//console.log("UACORE on invite send", this.uacore);
 	this.uacore.sendRequest(request);
 };
 
@@ -446,7 +455,7 @@ UA.prototype.sendAnswer = function() {
 };
 
 UA.prototype.createRequest = function(method, subject, body) {
-	console.log("UA create REQUEST");
+	//console.log("UA create REQUEST");
 	var request = null;
 	var interval = 3600;
 	var len = 0;
@@ -454,7 +463,7 @@ UA.prototype.createRequest = function(method, subject, body) {
 	if (EXISTS(body)) len = body.length;
 
 	if (method === "REGISTER") {
-		console.log("UA create Register");
+		//console.log("UA create Register");
 		//request = this.uacore.createRequest(method);
 		request = this.uacore.createRegister(this.scheme + ":" + this.user + "@" + this.domain);
 
@@ -491,13 +500,13 @@ UA.prototype.createRequest = function(method, subject, body) {
 		request.addHeader("User-Agent", Reticulum.Parser.Enum.SIP_HDR_USER_AGENT, "Reticulum client 0.0.1 Chrome");
 	}
 
-	console.log("TRIED to create request", method);
+	//console.log("TRIED to create request", method);
 
 	return request;
 };
 
 UA.prototype.onResponse = function(ua, response) {
-	console.log("App UA onresp:", response);
+	//console.log("App UA onresp:", response);
 	if (response.method === "REGISTER") {
 		//console.log("REG state before:", this.state);
 		if (this.state === "REGISTERING") {
@@ -560,7 +569,7 @@ UA.prototype.onResponse = function(ua, response) {
 					}
 				}
 			} else if (response.isFinal()) {
-				console.log("CLOSE on final response on Invite")
+				//console.log("CLOSE on final response on Invite")
 				this.closeCore();
 				this.setState('IDLE');
 				//this._signalClose();
@@ -574,8 +583,8 @@ UA.prototype.onResponse = function(ua, response) {
 };
 
 UA.prototype.closeCore = function() {
-	console.log("Downgrading core", this.uacore);
-	console.log("Old core", this._oldcore);
+	//console.log("Downgrading core", this.uacore);
+	//console.log("Old core", this._oldcore);
 
 	if (!EXISTS(this.uacore.close)) return;
 
@@ -613,17 +622,17 @@ UA.prototype.onRequest = function(ua, request) {
 	} else if (request.method === "BYE") {
 		if (this.uacore === ua) {
 			this.media.stopAudio();
-			console.log("Close Dialog from UA");
+			//console.log("Close Dialog from UA");
 			//this.uacore.close();
 			this.closeCore();
 			if (this.state !== "IDLE") {
-				console.log("call closed by remote party");
+				//console.log("call closed by remote party");
 				this.setState("IDLE");
 				ua.sendResponse(ua.createResponse(200, "OK"));
 			}
 			//this.close();
 		} else {
-			console.log("dialog not found error", this.uacore, ua, this.state);
+			//console.log("dialog not found error", this.uacore, ua, this.state);
 			ua.sendResponse(ua.createResponse(481, "Dialog Not Found"));
 		}
 	} else if (request.method === "ACK") {
@@ -653,17 +662,16 @@ UA.prototype.onRequest = function(ua, request) {
 };
 
 UA.prototype.closeCall = function() {
-	console.log("[CLOSE]", this, this.state, this.uacore)
+	// console.log("[CLOSE]", this, this.state, this.uacore)
 	if (this.state === "ACTIVE" || this.state === "INVITING" || this.state === "ACCEPTED") {
 		if (this.state === "INVITING") {
 			this.setState("TERMINATING");
-console.log("SEND CANCEL");
+			//console.log("SEND CANCEL");
 			this.uacore.sendCancel();
 		} else {
 			this.setState("TERMINATING");
-console.log("SEND BYE");
+			// console.log("SEND BYE");
 			this.uacore.sendRequest(this.uacore.createRequest("BYE"));
-			//this._ua.sendRequest(this._ua.createRequest("BYE"));
 		}
 
 		this.media.stopAudio();
@@ -675,11 +683,10 @@ console.log("SEND BYE");
 		//var app = this.app;
 
 		//if (!EXISTS(app.inviteUA)) return;
-console.log("Reject Call", "SEND 480 Response");
-		//app.inviteUA.sendRequest(app.inviteUA.createResponse(480, "Temporarily Unavailable"));
+		// console.log("Reject Call", "SEND 480 Response");
 		this.uacore.sendResponse(this.uacore.createResponse(480, "Temporarily Unavailable"));
 	} else if (this.state === "PROCEEDING") {
-		console.log("Reject Call", "SEND 603 Response");
+		// console.log("Reject Call", "SEND 603 Response");
 		this.uacore.sendResponse(this.uacore.createResponse(603, "Decline"));
 	}
 };

@@ -36,7 +36,7 @@ To stop the Reticulum server use:
 
 When running on Windows make sure that the ruby gems have been installed with `openssl` support.
 
-For detailed deployment and setup instructions take a look at [SETUP.md](https://github.com/GrimmKull/Reticulum/blob/github/SETUP.md) file.
+For detailed deployment and setup instructions take a look at [SETUP.md](https://github.com/GrimmKull/Reticulum/blob/master/SETUP.md) file.
 
 ## Using the webphone
 

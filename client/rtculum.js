@@ -1,4 +1,3 @@
-//var SIP = {};
 var EXISTS = function(obj) {
 	if (obj === undefined) return false;
 
@@ -104,8 +103,6 @@ Message.createRequest = function(method, uri) {
 };
 
 Message.createResponse = function (response, responsetext, headers, content, request) {
-	//console.log("CREATE:", response, "response");
-    // Create a new response Message with given attributes. The original request may be specified as the r parameter
     var message = new Reticulum.SIP.Message();
 	message.isRequest = false;
     message.statusCode = response;
@@ -135,20 +132,21 @@ Message.createResponse = function (response, responsetext, headers, content, req
 };
 
 var Stack = function(app, transport) {
-	this.tag = Utils.uuid();//str(random.randint(0,2**31));
+	this.tag = Utils.uuid();
 	this.app = app;
 	this.transport = transport;
 	this.closing = false;
 	this.dialogs = new HashTable();
 	this.transactions = new HashTable();
-	this.requests = {}; //new HashTable();
+	this.requests = new HashTable();
 	//this.serverMethods = ['INVITE','BYE','MESSAGE','SUBSCRIBE','NOTIFY'];
 
 	this.fixedContact = null;
 	this.fixedVia = null;
 
 	this.stores = {
-		transactions: new HashTable()
+		transactions: new HashTable(),
+		requests: new HashTable(),
 	};
 };
 
@@ -196,7 +194,7 @@ Stack.prototype.createVia = function(secure) {
 Stack.prototype.send = function(message, destination) {
 	//console.log("[SEND]");
 	// Send a data (Message) to given dest (URI or hostPort), or using the Via header of response message if dest is missing.
-	console.log("Sending", message.isRequest ? "request" : "response", "with", message.vias.length, "VIAs");
+	//console.log("Sending", message.isRequest ? "request" : "response", "with", message.vias.length, "VIAs");
 
 	if (!message.isRequest && !EXISTS(destination)) {
 		if (EXISTS(message.vias) && EXISTS(message.vias[0].sentby)) {
@@ -204,21 +202,44 @@ Stack.prototype.send = function(message, destination) {
 		}
 	}
 
+	var sentAt = Date.now();
+
 	// Debug info
 	message.direction = "out";
 	message.transportDestination = destination;
-	message.sentAt = Date.now();
+	message.sentAt = sentAt;
+
+	var archived = {
+		id: message.id(),
+		request: message.isRequest,
+		direction: "out",
+		source: null,
+		destination: destination,
+		parseTime: null,
+		receivedAt: null,
+		sentAt: sentAt,
+		raw: message.toString(),
+		method: message.method,
+		code: message.isRequest ? 0 : message.statusCode,
+		responses: [],
+	};
 
 	if (message.isRequest) {
-		if (EXISTS(this.requests[message.id()])) {
+		console.log("Archive req on send");
+		if (EXISTS(this.requests.getItem(message.id()))) {
 			console.log("Warning request already archived");
 		}
 		// Archive request
-		this.requests[message.id()] = message;
+		this.requests.setItem(message.id(), message);
+
+		this.stores.requests.setItem(message.id(), archived);
 	} else {
+		console.log("Archive resp on send");
 		// Archive response
-		if (EXISTS(this.requests[message.id()])) {
-			this.requests[message.id()].responses.push(message);
+		if (EXISTS(this.requests.getItem(message.id()))) {
+			this.requests.getItem(message.id()).responses.push(message);
+
+			this.stores.requests.getItem(message.id()).responses.push(archived);
 		} else {
 			console.log("Corresponding request for this response was not found");
 		}
@@ -226,8 +247,8 @@ Stack.prototype.send = function(message, destination) {
 
 	// console.log("SENT!", message.id());
 	//console.log("SENT!", message.isRequest ? message.method : message.statusCode, "to", destination, "-", message.to.auri);
-//console.log(message);
-//console.log(message.toString());
+	//console.log(message);
+	//console.log(message.toString());
 	this.app.send(message.toString(), destination);
 };
 
@@ -236,39 +257,63 @@ Stack.prototype.onData = function(data, source) {
 	//try {
 		var start = Date.now();
 		var message = Reticulum.Parser.parse(data);
-// console.log("GOT!", message.isRequest ? message.method : message.statusCode, "from", source.name, "-", message.from.auri);
-// console.log("-------");
-// console.log(data);
-// console.log("-------");
+		// console.log("GOT!", message.isRequest ? message.method : message.statusCode, "from", source.name, "-", message.from.auri);
+		// console.log("-------");
+		// console.log(data);
+		// console.log("-------");
 		if (!EXISTS(message)) {
 			console.log("Error. Received invalid message.");
 			throw("Received invalid message");
 		}
 
+		var doneAt = Date.now();
+
 		message.direction = "in";
 		message.transportSource = source;
-		message.parseTime = Date.now() - start;
+		message.parseTime = doneAt - start;
 		message.receivedAt = start;
 
+		var archived = {
+			id: message.id(),
+			request: message.isRequest,
+			direction: "in",
+			source: source,
+			destination: null,
+			parseTime: doneAt - start,
+			receivedAt: start,
+			sentAt: null,
+			raw: message.toString(),
+			method: message.method,
+			code: message.isRequest ? 0 : message.statusCode,
+			responses: [],
+		};
+
 		if (message.isRequest) {
-			if (EXISTS(this.requests[message.id()])) {
+			// console.log("Archive req on get");
+			if (EXISTS(this.requests.getItem(message.id()))) {
 				console.log("Warning request already archived");
 			}
 			// Archive request
-			this.requests[message.id()] = message;
+			this.requests.setItem(message.id(), message);
+
+			this.stores.requests.setItem(message.id(), archived);
 		} else {
+			// console.log("Archive resp on get");
 			// Archive response
-			if (EXISTS(this.requests[message.id()])) {
-				this.requests[message.id()].responses.push(message);
+			if (EXISTS(this.requests.getItem(message.id()))) {
+				console.log(message.id(), this.requests.getItem(message.id()).responses);
+				this.requests.getItem(message.id()).responses.push(message);
+
+				this.stores.requests.getItem(message.id()).responses.push(archived);
 			} else {
 				console.log("Corresponding request for this response was not found");
 			}
 		}
-//console.log("GOT!", message.id());
+		//console.log("GOT!", message.id());
 		//var uri = Reticulum.SIP.formatURI(source, this.transport.isSecure());//this.transport.isSecure() ? "sips" : "sip";
 		//uri += ":" + source.host + ":" + source.port;
 
-		console.log("Got", message.isRequest ? "request" : "response", "with", message.vias.length, "VIAs");
+		//console.log("Got", message.isRequest ? "request" : "response", "with", message.vias.length, "VIAs");
 
 		if (message.isRequest) {
 			if (!EXISTS(message.vias) || message.vias.length === 0) {
@@ -276,7 +321,7 @@ Stack.prototype.onData = function(data, source) {
 				throw("No via header in request");
 			}
 
-//console.log(message.vias);
+			//console.log(message.vias);
 			if (message.vias[0].host.name !== source.name || message.vias[0].port !== source.port) {
 				message.vias[0].received = source.name;
 				message.vias[0].host.name = source.name;
@@ -319,7 +364,7 @@ Stack.prototype.handleRequest = function(message, uri) {
 			transaction = this.findTransaction(Transaction.createId(branch, message.method));
 		}
 
-		console.log("transaction for ACKed request", transaction);
+		//console.log("transaction for ACKed request", transaction);
 	} else {
 		transaction = this.findTransaction(Transaction.createId(branch, message.method));
 	}
@@ -330,7 +375,7 @@ Stack.prototype.handleRequest = function(message, uri) {
 
 			if (!EXISTS(dialog)) {
 				if (message.method !== "ACK") {
-					core = this.createServer(message, uri);//this.ua;//createUA(message);
+					core = this.createServer(message, uri);
 
 					if (EXISTS(core)) {
 						layer = core;
@@ -346,7 +391,7 @@ Stack.prototype.handleRequest = function(message, uri) {
 							transaction.onRequest(message);
 							return;
 						} else {
-							core = this.createServer(message, uri); //this.ua;//createUA(message);
+							core = this.createServer(message, uri);
 
 							if (EXISTS(core)) {
 								layer = core;
@@ -361,7 +406,7 @@ Stack.prototype.handleRequest = function(message, uri) {
 				layer = dialog;
 			}
 		} else if (message.method !== "CANCEL") {
-			core = this.createServer(message, uri);//this.ua;//createUA(message);
+			core = this.createServer(message, uri);
 
 			if (EXISTS(core)) {
 				layer = core;
@@ -394,7 +439,7 @@ Stack.prototype.handleRequest = function(message, uri) {
 				// remove transaction
 				this.transactions.removeItem(transaction.id);
 			}
-console.log("Layer is:", layer, "request is:", message.method, this.transactions.getItem(transaction.id), transaction.id);
+			//console.log("Layer is:", layer, "request is:", message.method, this.transactions.getItem(transaction.id), transaction.id);
 		} else if (message.method !== "ACK") {
 			console.log("Error 404 not found!");
 			//return
@@ -414,10 +459,10 @@ Stack.prototype.handleResponse = function(message) {
 	var transaction = this.findTransaction(Transaction.createId(branch, message.method));
 	var dialog = null;
 
-	console.log("Stack handleRequest", message.method, transaction);
+	//console.log("Stack handleRequest", message.method, transaction);
 
 	if (transaction === null) {
-console.log("Transaction for resp not found", Transaction.createId(branch, message.method), message);
+		//console.log("Transaction for resp not found", Transaction.createId(branch, message.method), message);
 		if (message.method === "INVITE" && message.is2xx()) {
 			dialog = this.findDialog(message);
 
@@ -474,7 +519,7 @@ Stack.prototype.onRequest = function(ua, request) {
 };
 
 Stack.prototype.onResponse = function(ua, response) {
-	console.log("simple stack on response", this.app);
+	//console.log("simple stack on response", this.app);
 	this.app.onResponse(ua, response, this);
 };
 
@@ -495,7 +540,6 @@ Stack.prototype.authenticate = function(ua, header) {
 
 // TODO: implement Timers
 Stack.prototype.createTimer = function(name, obj) {
-// 	return this.app.createTimer(obj, this);
 	return new Timer(name, obj);
 };
 
@@ -558,10 +602,38 @@ Transaction.prototype.close = function() {
 
 Transaction.prototype.setState = function(value) {
 	var method = "UNKNOWN";
+	//var code = 0;
+	var req = null;
+	var responses = [];
 
-	if (EXISTS(this.request)) method = this.request.method;
+	var id = this.branch + "|" + this.request.method;
 
-	console.log("[T state] from:", this.state, "to:", value, "id:", this.id);
+	if (EXISTS(this.request)) {
+		method = this.request.method;
+
+		req = this.stack.stores.requests.getItem(this.request.id())
+
+		// if (EXISTS(this.request.responses)) {
+			// for (var i = 0; i < this.request.responses.length; i++) {
+				// If response ID matches request ID
+				// if (this.request.responses[i].id() === this.request.id()) {
+				// 	responses.push({
+				// 		id: this.request.responses[i].id(),
+				// 		code: this.request.responses[i].statusCode,
+				// 	});
+				// }
+			// }
+			/* for (var i = 0; i < this.req.responses.length; i++) {
+				//if (req.responses[i].id() === this.request.id()) {
+					responses.push({
+						id: req.id,
+						code: this.request.responses[i].statusCode,
+					});
+				//}
+			}*/
+		// }
+	}
+	//console.log("[T state] from:", this.state, "to:", value, "id:", this.id);
 
 	this.history.push({
 		from: this.state,
@@ -569,14 +641,47 @@ Transaction.prototype.setState = function(value) {
 		at: Date.now()
 	});
 
-	this.stack.app.setStateFromTransaction(this.type, this.state, value, method);
+	var data = {
+		id: id,
+		state: value,
+		type: this.type,
+		history: this.history,
+		request: req/*{
+			id: this.request.id(),
+			method: method,
+		},*/
+		//response: responses,
+	};
+
+	// var archived = {
+	// 	id: message.id(),
+	// 	request: message.isRequest,
+	// 	direction: "in",
+	// 	source: source,
+	// 	destination: null,
+	// 	parseTime: doneAt - start,
+	// 	receivedAt: start,
+	// 	sentAt: null,
+	// 	raw: message.toString(),
+	// 	method: message.method,
+	// 	code: message.isRequest ? 0 : message.statusCode,
+	// 	responses: [],
+	// };
+
+	this.stack.app.setStateFromTransaction(this.type, this.state, value, method, {
+		id: id,
+		data: data,
+	});
 
 	this.state = value;
 
 	//this.stack.app.setState(value);
 
-	if (this.state === "TERMINATED") {
+	if (value === "TERMINATED") {
 		// this.close();
+
+		// NOTE: add transaction history to store once it is TERMINATED
+		this.stack.stores.transactions.setItem(this.branch + "|" + method, data);
 	}
 };
 
@@ -584,16 +689,7 @@ Transaction.prototype.getState = function() {
 	return this.state;
 };
 
-// NOTE: use server BOOL paramter to differentiate between server and client transaction branches
 Transaction.createBranch = function(request/*, server*/) {
-	/*var to = request.to.raw.toLowerCase();
-	var from = request.from.raw.toLowerCase();
-	var callid = request.callid;
-	var cseq = request.cseq.raw;
-
-	var data = to + '|' + from + '|' + callid + '|' + cseq + '|' + server;*/
-	//return 'z9hG4bK' + urlsafe_b64encode(md5(data).digest()).replace('=','.');
-
 	var branch = "z9hG4bK";
 	branch += Utils.token(15-7, Utils.TOKEN_NUMERIC_16);
 
@@ -631,7 +727,7 @@ Transaction.createServer = function(stack, app, request, transport, tag, start) 
 	transaction.id = Transaction.createId(transaction.branch, request.method);
 	stack.transactions.setItem(transaction.id, transaction);
 
-	stack.stores.transactions.setItem(transaction.branch + "|" + request.method, transaction);
+	//stack.stores.transactions.setItem(transaction.branch + "|" + request.method, transaction);
 
 	if (start === true)
 		transaction.start();
@@ -665,7 +761,7 @@ Transaction.createClient = function(stack, app, request, transport, remote) {
 	transaction.id = Transaction.createId(transaction.branch, request.method);
 	stack.transactions.setItem(transaction.id, transaction);
 
-	stack.stores.transactions.setItem(transaction.branch + "|" + request.method, transaction);
+	//stack.stores.transactions.setItem(transaction.branch + "|" + request.method, transaction);
 
 	transaction.start();
 
@@ -754,12 +850,12 @@ Transaction.prototype.timedout = function(name) {
 	// if (timer.isRunning()) timer.stop();
 
 	var timer = this.timers.getItem(name);
-	console.log("%cTimer: " + name, "background: #222; color: red;");
-	console.log("%cTransaction Timedout " + name, "background: #222; color: #bada55; padding: 5px;");
+	//console.log("%cTimer: " + name, "background: #222; color: red;");
+	//console.log("%cTransaction Timedout " + name, "background: #222; color: #bada55; padding: 5px;");
 
 	if (EXISTS(timer)) {
 		if (timer.isRunning()) timer.stop();
-console.log("Timer timedout", name, timer.delay);
+		//console.log("Timer timedout", name, timer.delay, "for", this.state, "transaction", this.type);
 		this.timeout(name, timer.delay);
 		//timer.delete();
 		this.timers.removeItem(name);
@@ -804,11 +900,22 @@ var Timer = function(name, obj) {
 
 Timer.prototype.start = function (timeout) {
 	this.delay = timeout;
-	this.ticker = window.setTimeout(this.callback, timeout);
+	this.ticker = null;
+
+	if (typeof window !== 'undefined' && window) {
+		this.ticker = window.setTimeout(this.callback, timeout);
+	} else {
+		this.ticker = setTimeout(this.callback, timeout);
+	}
 };
 
 Timer.prototype.stop = function () {
-	window.clearTimeout(this.ticker);
+	if (typeof window !== 'undefined' && window) {
+		window.clearTimeout(this.ticker);
+	} else {
+		clearTimeout(this.ticker);
+	}
+
 	this.ticker = null;
 };
 
@@ -836,7 +943,7 @@ ClientTransaction.prototype.start = function() {
 };
 
 ClientTransaction.prototype.onResponse = function(response) {
-	console.log("ct on response", this.app);
+	//console.log("ct on response", this.app);
 	if (response.is1xx()) {
 		if (this.state === "TRYING") {
 			this.setState("PROCEEDING");
@@ -858,7 +965,7 @@ ClientTransaction.prototype.onResponse = function(response) {
 };
 
 ClientTransaction.prototype.timeout = function(name, timeout) {
-	console.log("ClientTransaction timeout");
+	//console.log("ClientTransaction timeout");
 	if (this.state === "TRYING" || this.state === "PROCEEDING") {
 		if (name === "E") {
 			if (this.state == "TRYING")
@@ -909,7 +1016,7 @@ ServerTransaction.prototype.onRequest = function(request) {
 };
 
 ServerTransaction.prototype.timeout = function(name, timeout) {
-	console.log("ServerTransaction timeout");
+	//console.log("ServerTransaction timeout");
 	if (this.state === "COMPLETED")
 		if (name === "J") this.setState("TERMINATED");
 };
@@ -990,7 +1097,7 @@ InviteClientTransaction.prototype.onResponse = function(response) {
 };
 
 InviteClientTransaction.prototype.timeout = function(name, timeout) {
-	console.log("InviteClientTransaction timeout");
+	//console.log("InviteClientTransaction timeout");
 	if (this.state === "CALLING") {
 		if (name === "A") {
 			this.startTimer("A", 2*timeout);
@@ -1024,7 +1131,7 @@ InviteClientTransaction.prototype.createAck = function(response) {
 	var from = this.request.from;
 	if (EXISTS(response)) from = response.from;
 
-//console.log("CREATE ACK 3", this.request.uri)
+	//console.log("CREATE ACK 3", this.request.uri)
 	message = Message.createRequest("ACK", this.request.uri);
 
 	message.addHeader("Call-ID", Reticulum.Parser.Enum.SIP_HDR_CALL_ID, this.request.callid);
@@ -1080,7 +1187,7 @@ InviteServerTransaction.prototype.onRequest = function(request) {
 };
 
 InviteServerTransaction.prototype.timeout = function(name, timeout) {
-	console.log("InviteServerTransaction timeout");
+	//console.log("InviteServerTransaction timeout");
 	if (this.state === "COMPLETED") {
 		if (name === "G") {
 			this.startTimer("G", Math.min(2*timeout, this.timerconfs.t2));
@@ -1178,7 +1285,7 @@ UACore.prototype.createTransaction = function(request) {
 };
 
 UACore.prototype.createRequest = function(method, content, contentType) {
-	console.log("UACore createRequest", method);
+	//console.log("UACore createRequest", method);
 	this.server = false;
 	if (!EXISTS(this.remote)) throw "No remote party for UAC";
 	if (!EXISTS(this.local)) this.local = "\"Anonymous\" <sip:anonymous@anonymous.invalid>";
@@ -1236,7 +1343,7 @@ UACore.prototype.createRequest = function(method, content, contentType) {
 	// Add new branch to fixedVia
 	if (method !== "ACK" && method !== "CANCEL") request.vias[0].params.branch = branch;
 
-	console.log("UACore routeSet", this.routeSet);
+	//console.log("UACore routeSet", this.routeSet);
 
 	if (EXISTS(this.routeSet) && this.routeSet.length > 0) {
 		for (var i = this.routeSet.length - 1; i >= 0; i--) {
@@ -1263,7 +1370,7 @@ UACore.prototype.createRequest = function(method, content, contentType) {
 UACore.prototype.createAck = function(response) {
 	var ack = null;
 
-	var request = this.stack.requests[response.id()];
+	var request = this.stack.requests.getItem(response.id());
 
 	var to = request.to;
 	if (EXISTS(response)) to = response.to;
@@ -1286,7 +1393,7 @@ UACore.prototype.createAck = function(response) {
 };
 
 UACore.prototype.createRegister = function(aor) {
-	console.log("UACore createRegister");
+	//console.log("UACore createRegister");
 	if (aor) this.remote = Reticulum.Parser.parseAddress(aor);
 	//if (!this.local) this.local = Reticulum.Parser.parseAddress(this.remote);
 	if (!this.loca) this.local = Reticulum.Parser.parseAddress(aor);
@@ -1299,7 +1406,7 @@ UACore.prototype.createRegister = function(aor) {
 };
 
 UACore.prototype.sendRequest = function(request) {
-	console.log("UACore sendRequest", request.method);
+	//console.log("UACore sendRequest", request.method);
 	// Send a UAC request Message
 	if (!EXISTS(this.request) && request.method === "REGISTER") {
 		//console.log(this.transaction);
@@ -1312,7 +1419,7 @@ UACore.prototype.sendRequest = function(request) {
 
 	// TODO:	implement routes support, append all stored Record-Route
 	//			headers as Route headers only in reverse
-console.log("UACore route set", this.routeSet);
+	//console.log("UACore route set", this.routeSet);
 	if (EXISTS(this.routeSet) && this.routeSet.length > 0) {
 		request.routes = [];
 		for (var i = this.routeSet.length - 1; i >= 0; i--) {
@@ -1326,7 +1433,7 @@ console.log("UACore route set", this.routeSet);
 	else
 		this.remoteTarget = request.uri;
 
-console.log("SEND req FROM UACORE", EXISTS(this.request), request.uri, request.remoteURI);
+	//console.log("SEND req FROM UACORE", EXISTS(this.request), request.uri, request.remoteURI);
 
 	var target = this.remoteTarget;
 
@@ -1350,7 +1457,7 @@ console.log("SEND req FROM UACORE", EXISTS(this.request), request.uri, request.r
 	target = this.remoteCandidates.pop(0);*/
 	if (this.request.method !== "ACK") {
 	 	//start a client transaction to send the request
-		console.log("UACore sendRequest TARGET", target);
+		//console.log("UACore sendRequest TARGET", target);
 		this.transaction = Transaction.createClient(this.stack, this, this.request, this.stack.transport, target.hostPort);
 	} else {// directly send ACK on transport layer
 		//this.stack.send(this.request, target.hostPort);
@@ -1366,7 +1473,7 @@ UACore.prototype.onResponse = function(transaction, response) {
 	//console.log("UACore on response");
 	// Received a new response from the transaction.
 	if (EXISTS(transaction) && transaction !== this.transaction) {
-		console.log("Invalid transaction received", transaction, this.transaction);
+		console.log("Invalid transaction received");//, transaction, this.transaction);
 		return;
 	}
 
@@ -1417,9 +1524,9 @@ UACore.prototype.onRequest = function(transaction, request) {
 	this.server = true;
 
 
-	console.log("UACore onRequest routeSet before:", this.routeSet);
+	//console.log("UACore onRequest routeSet before:", this.routeSet);
 	if (EXISTS(request.record_routes)) this.routeSet = request.record_routes;
-console.log("UACore onRequest routeSet after:", this.routeSet);
+	//console.log("UACore onRequest routeSet after:", this.routeSet);
 	//console.log("on request uri scheme:", request.uri.scheme);
 	if (["sip", "sips", "urn"].indexOf(request.uri.scheme) === -1) {
 		transaction.sendResponse(transaction.createResponse(416, "Unsupported URI scheme"));
@@ -1441,7 +1548,7 @@ console.log("UACore onRequest routeSet after:", this.routeSet);
 	// if (request.require) {
 	// 	if (request.method !== "CANCEL" && request.method !== "ACK") {
 	// 		response = transaction.createResponse(420, "Bad extension");
-	// 		response.unsupported = Header(str(request.Require.value), "Unsupported");
+	// 		response.addHeader("Unsupported", Reticulum.Parser.Enum.SIP_HDR_UNSUPPORTED, request.headers[Reticulum.Parser.Enum.SIP_HDR_REQUIRE].value);
 	// 		transaction.sendResponse(response);
 	// 		return;
 	// 	}
@@ -1483,7 +1590,7 @@ UACore.prototype.sendResponse = function(response, responseText, content, conten
 		if (!EXISTS(response.contact)) {
 			var contact = this.contact;
 
-			console.log(this.contact);
+			//console.log(this.contact);
 
 			if (!EXISTS(contact.uri.user)) contact.uri.user = this.request.to.uri.user;
 
@@ -1494,8 +1601,6 @@ UACore.prototype.sendResponse = function(response, responseText, content, conten
 
 				contact.dname = "\"" + name + " RTC\"";
 			}
-
-			// "\"Anonymous\"<sips:" + this.local.uri.user + "@r3t1cu1um.invalid;transport=wss>;expires=1800";
 
 			response.addHeader("Contact", Reticulum.Parser.Enum.SIP_HDR_CONTACT, contact.toString());
 		}
@@ -1542,7 +1647,7 @@ UACore.prototype.sendCancel = function() {
 };
 
 UACore.prototype.timeout = function(transaction) {
-	console.log("UACore Timeout handler");
+	//console.log("UACore Timeout handler");
 	// if (EXISTS(transaction) && transaction !== this.transaction) {
 	// 	console.log("Invalid transaction in UACore timeout");
 	// 	return;
@@ -1553,7 +1658,7 @@ UACore.prototype.timeout = function(transaction) {
 	// // if UAC
 	// if (!this.server) {
 	// 	// TODO: make sure there is at least one remote candidate
-	// 	if (this.remoteCandidates && len(this.remoteCandidates)>0) {
+	// 	if (this.remoteCandidates && this.remoteCandidates.length > 0) {
 	// 		this.retryNextCandidate();
 	// 	} else {
 	// 		this.onResponse(null, Message.createResponse(408, "Request timeout", null, null, this.request));
@@ -1562,14 +1667,14 @@ UACore.prototype.timeout = function(transaction) {
 };
 
 UACore.prototype.error = function(transaction, error) {
-	console.log("UACore Error handler");
+	//console.log("UACore Error handler");
 	// if (EXISTS(transaction) && transaction !== this.transaction) return;
 	//
 	// this.transaction = null;
 	//
 	// // if UAC
 	// if (!this.server) {
-	// 	if (this.remoteCandidates && len(this.remoteCandidates)>0) {
+	// 	if (this.remoteCandidates && this.remoteCandidates.length > 0) {
 	// 		this.retryNextCandidate();
 	// 	} else {
 	// 		this.onResponse(null, Message.createResponse(503, 'Service unavailable - ' + error, null, null, this.request));
@@ -1582,7 +1687,7 @@ UACore.prototype.authenticate = function(response, transaction) {
 
 	if (!EXISTS(transaction.request)) return false;
 
-	var request = transaction.request;
+	var request = Reticulum.Parser.parse(transaction.request.toString());
 	var value = Digest.createAuthorization(response, request, this.stack.app.authinfo);
 
 	if (value !== null) {
@@ -1594,8 +1699,10 @@ UACore.prototype.authenticate = function(response, transaction) {
 		request.addHeader(name, id, value);
 		request.addHeader("CSeq", Reticulum.Parser.Enum.SIP_HDR_CSEQ, this.localSeq + ' ' + request.method);
 		request.vias[0].params.branch = Transaction.createBranch(request);
-		this.request = request;
-		this.transaction = Transaction.createClient(this.stack, this, request, this.stack.transport, remote);
+		//this.request = request;
+		var new_transaction = Transaction.createClient(this.stack, this, request, this.stack.transport, remote);
+
+		this.transaction = new_transaction;
 
 		return true;
 	} else {
@@ -1623,7 +1730,7 @@ Dialog.prototype = Object.create(UACore.prototype);
 Dialog.prototype.constructor = Dialog;
 
 Dialog.createServer = function(stack, request, response, transaction) {
-	console.log("Create server dialog");
+	//console.log("Create server dialog");
 	//Create a dialog from UAS while sending response to request in the transaction
 	var dialog = new Dialog(stack, request, true);
 	dialog.request = request;
@@ -1648,7 +1755,7 @@ Dialog.createServer = function(stack, request, response, transaction) {
 };
 
 Dialog.createClient = function(stack, request, response, transaction) {
-	console.log("Create client dialog");
+	//console.log("Create client dialog");
 	// Create a dialog from UAC on receiving response to request in the transaction.
 	var dialog = new Dialog(stack, request, false);
 	dialog.request = request;
@@ -1687,7 +1794,7 @@ Dialog.prototype.close = function () {
 
 	if (EXISTS(d) && d.closed) return;
 
-	console.log("CLOSE dialog", d);
+	//console.log("CLOSE dialog", d);
 	if (EXISTS(d)) d.closed = true;
 	this.closed = true;
 	//if (EXISTS(this.stack)) this.stack.dialogs.removeItem(this.id());
@@ -1699,7 +1806,7 @@ Dialog.prototype.id = function () {
 };
 
 Dialog.prototype.createRequest = function (method, content, contentType) {
-	console.log("Dialog createRequest", this.routeSet);
+	//console.log("Dialog createRequest", this.routeSet);
 	var request = UACore.prototype.createRequest.call(this, method, content, contentType);
 
 	if (EXISTS(this.remoteTag)) request.to.params.tag = this.remoteTag;
@@ -1727,7 +1834,7 @@ Dialog.prototype.createResponse = function (responsecode, responsetext, content,
 	var response = Message.createResponse(responsecode, responsetext, null, content, request);
 	if (contentType) response.addHeader("Content-Type", Reticulum.Parser.Enum.SIP_HDR_CONTENT_TYPE, contentType);
 
-console.log("NEW DIALOG RESP", "localtag:", this.localtag, "current tag:", response.to.params.tag);
+	//console.log("NEW DIALOG RESP", "localtag:", this.localtag, "current tag:", response.to.params.tag);
 
 	if (response.statusCode !== 100 && !EXISTS(response.to.params.tag)) {
 		response.to.params.tag = this.localTag;
@@ -1798,7 +1905,7 @@ Dialog.prototype.onRequest = function (transaction, request) {
 };
 
 Dialog.prototype.onResponse = function(transaction, response) {
-	console.log("dlg on response");
+	//console.log("dlg on response");
 
 	// Incoming response in a dialog.
 	if (response.is2xx() && EXISTS(response.contacts) && EXISTS(transaction) && transaction.request.method === 'INVITE') {
@@ -1828,16 +1935,16 @@ Dialog.prototype.onResponse = function(transaction, response) {
 		this.stack.onResponse(this, response);
 	}
 
-//console.log("In dialog send ACK");
+	//console.log("In dialog send ACK");
 	if (this.autoack && response.is2xx && (transaction && transaction.request.method == 'INVITE' || response.CSeq.method == 'INVITE')) {
 		this.sendRequest(this.createRequest('ACK'));
 	}
 
 	if (response.is2xx() && response.method === 'BYE') {
-		console.log("Got 200 OK response on BYE, close dialog");
+		//console.log("Got 200 OK response on BYE, close dialog");
 		this.close();
 	} else if (response.isFinal() && response.method === 'BYE') {
-		console.log("Got FINAL response to BYE in dialog, close dialog");
+		//console.log("Got FINAL response to BYE in dialog, close dialog");
 		this.close();
 	}
 };

@@ -2,9 +2,11 @@
 
 builds/build
 */reticulum_phone.js
+*/reticulum_node_phone.min.js
 
 Tasks.md
 Masters.md
+Fixed.md
 
 .imdone
 Gemfile.lock
@@ -13,6 +15,7 @@ client/bob.html
 client/sipml5.html
 client/sipml5call.html
 client/sipml5.min.js
+client/node.html
 
 tmp/
 logs/

@@ -42,7 +42,7 @@ class Admin
                 :method => method,
                 :msg => message.to_s,
                 :direction => (bIn ? 'in' : 'out'),
-                :remote => remote,
+                :remote => remote.name + "_" + remote.port.to_s,
             },
         })
     end

@@ -7,18 +7,12 @@
 	<script type="text/javascript" src="utils.js"></script>
 	<script type="text/javascript" src="auth.js"></script>
 	<script type="text/javascript" src="parser.js"></script>
-	<script type="text/javascript" src="media2.js"></script>
+	<script type="text/javascript" src="media.js"></script>
 	<script type="text/javascript" src="transport.js"></script>
 	<script type="text/javascript" src="sip.js"></script>
 	<script type="text/javascript" src="ua.js"></script>
 	<script type="text/javascript" src="rtculum.js"></script>
 	<!-- <script type="text/javascript" src="reticulum_phone.js"></script> -->
-
-	<!-- <link rel="stylesheet" href="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.blue_grey-red.min.css">
-	<script src="https://storage.googleapis.com/code.getmdl.io/1.0.5/material.min.js"></script>
-	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-
-	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css"> -->
 
 	<link rel="stylesheet" href="/ui/material.blue_grey-red.min.css">
 	<link rel="stylesheet" href="/ui/font-awesome.min.css">
@@ -49,6 +43,7 @@ button {
 .mdl-mini-footer--social-btn {
 	background: none;
 	color: #cecece;
+	text-decoration: none;
 }
 
 .fa {
@@ -56,15 +51,23 @@ button {
 }
 
 #remoteVideo {
-	width: 100%;
+	/*width: 100%;*/
+	height: 600px;
+    width: 800px;
+    margin: 20px 40px;
 }
 
 #localVideo {
-	width: 25%;
+	/*width: 25%;*/
     position: absolute;
     background-color: #FF5252;
     bottom: 0;
     right: 0;
+
+	width: 200px;
+	height: 150px;
+	margin: 10px;
+	margin-right: 30px;
 }
 
 video {
@@ -74,10 +77,24 @@ video {
 .grid {
 	max-width: 900px;
 }
+
+@media screen and (max-width: 1024px) {
+	.mdl-layout__header {
+	    display: flex;
+	}
+
+	.mdl-layout-title {
+	    margin-left: -25px;
+	}
+
+	.mdl-layout__header-row .mdl-navigation__link {
+		display: none;
+	}
+}
 	</style>
 </head>
 <body>
-	<div class="mdl-layout__container"></div>
+	<div class="mdl-layout__container">
 		<div class="mdl-layout">
 			<header class="mdl-layout__header">
 				<div class="mdl-layout-icon"></div>
@@ -158,60 +175,64 @@ video {
 	</div>
 
 	<script type="text/javascript">
-		var realm = location.hostname; // "reticulum.local"
+		var proxy = location.hostname; // "reticulum.local"
 		var port = location.port; // 7000
 		var webphone = null;
 
-		var usernameElement = document.getElementById("username");
-		var passElement = document.getElementById("password");
-		var remoteElement = document.getElementById("remote");
+		var usernameElement = document.getElementById('username');
+		var passElement = document.getElementById('password');
+		var remoteElement = document.getElementById('remote');
 
-		if(typeof(Storage) !== "undefined") {
+		if(typeof(Storage) !== 'undefined') {
 			// Code for localStorage/sessionStorage.
-			usernameElement.value = localStorage.getItem("user");
-			passElement.value = localStorage.getItem("pass");
-			remoteElement.value = localStorage.getItem("remote");
+			usernameElement.value = localStorage.getItem('user');
+			passElement.value = localStorage.getItem('pass');
+			remoteElement.value = localStorage.getItem('remote');
 		} else {
-			console.log("Local Storage is not supported");
+			console.log('Local Storage is not supported');
 		}
 
-		document.getElementById("connect").onclick = function() {
-			var userauth = new AuthInfo(usernameElement.value, passElement.value);
+		document.getElementById('connect').onclick = function() {
+			// TODO: get realm from proxy address if it is a valid subdomain
+			// 		the realm should be the domain of that subdomain or undefined
+			//		to fallback to 'reticulum'
+			var realm = undefined;
+			var userauth = new AuthInfo(usernameElement.value, passElement.value, realm);
 
-			webphone = new Phone(false, false, userauth, realm, port, 'wss');// autorespond, autodecline, user, domain==realm
+			webphone = new Phone(false, false, userauth, proxy, port, 'wss');// autorespond, autodecline, user, domain==realm
 			webphone.transport.connect();
 		}
 
-		document.getElementById("reg").onclick = function() {
+		document.getElementById('reg').onclick = function() {
 			webphone.register();
 
-			if(typeof(Storage) !== "undefined") {
+			if(typeof(Storage) !== 'undefined') {
 				// Code for localStorage/sessionStorage.
-				localStorage.setItem("user", usernameElement.value);
-				localStorage.setItem("pass", passElement.value);
-				localStorage.setItem("remote", remoteElement.value);
+				localStorage.setItem('user', usernameElement.value);
+				localStorage.setItem('pass', passElement.value);
+				localStorage.setItem('remote', remoteElement.value);
 			}
 		}
 
-		document.getElementById("call").onclick = function() {
-			var remote = "";
-			if (remoteElement.value.indexOf("@") !== -1)
+		document.getElementById('call').onclick = function() {
+			var remote = '';
+			if (remoteElement.value.indexOf('@') !== -1)
 				remote = '<sip:'+ remoteElement.value + '>';
 			else
-				remote = '<sip:'+ remoteElement.value + '@' + realm + '>', ""
+				remote = '<sip:'+ remoteElement.value + '@' + proxy + '>';
 
 			webphone.call(remote);
 		}
 
-		document.getElementById("answer").onclick = function() {
+		document.getElementById('answer').onclick = function() {
 			webphone.answer();
 		}
 
-		document.getElementById("hangup").onclick = function() {
+		document.getElementById('hangup').onclick = function() {
 			webphone.reject();
 		}
 
-		document.getElementById("reject").onclick = function() {
+		document.getElementById('reject').onclick = function() {
 			webphone.reject();
 		}
 
