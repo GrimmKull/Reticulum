@@ -1176,17 +1176,17 @@ class Proxy
         Storage.messages[message.id()] = message
 
         # TODO: enable error handling
-        #begin
+        # begin
             # puts [ "MSG", message.to_s ]
             # puts [ message.via.length ]
             t = message.request? ? Transaction.getServer(message) : Transaction.getClient(message)
-#puts ["Handle", message.method, "has transaction?", t.nil?, t.nil? ? "null" : t.state]
+            #puts ["Handle", message.method, "has transaction?", t.nil?, t.nil? ? "null" : t.state]
             if t.nil?
                 if message.method != 'ACK'
                     t = Transaction.createSTrans(message, Transport.get(remote))
 
                     # TODO: reenable error handling
-                    #begin
+                    begin
                         # NOTE: disable INVITE to oneself
                         if message.method == "INVITE" && (message.to.auri == message.from.auri)
 
@@ -1195,12 +1195,12 @@ class Proxy
                         end
 
                         route(message, remote)
-=begin
+
                     rescue
                         puts "Rescue to error 500"
                         t.send(Sip.makeResponse(message, 500, "Internal Server Error"))
                     end
-=end
+
                 elsif message.method == 'ACK'
                     p [ "No Transaction found", "handling ACK" ]
                     route(message, remote)
@@ -1208,15 +1208,15 @@ class Proxy
             else
                 if message.method == 'ACK'
                     p [ "handling in transaction ACK" ]
-                    p [ t.response.to_s ] unless t.response.nil?
-                    p [ t.request.to_s ] unless t.request.nil?
+                #     p [ t.response.to_s ] unless t.response.nil?
+                #     p [ t.request.to_s ] unless t.request.nil?
                 end
 
                 t.message(message, remote)
             end
-        #rescue => e
+        # rescue => e
             #puts e.message
-        #end
+        # end
     end
 
     def send message

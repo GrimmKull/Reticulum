@@ -6,11 +6,13 @@ WebRTC Webphone with SIP Proxy implemented on Raspberry Pi platform.
 
 ## Status
 
-![status](https://img.shields.io/badge/reticulum proxy-98%25%20done-brightgreen.svg?style=flat-square&logoWidth=30)
+![status](https://img.shields.io/badge/reticulum proxy-100%25%20done-brightgreen.svg?style=flat-square&logoWidth=30)
 
-![status](https://img.shields.io/badge/reticulum webphone-95%25%20done-green.svg?style=flat-square&logoWidth=5)
+![status](https://img.shields.io/badge/reticulum webphone-100%25%20done-brightgreen.svg?style=flat-square&logoWidth=5)
 
 Try it out at [reticulum.outbox.systems](https://reticulum.outbox.systems/?#).
+
+![reticulum](http://photos.lishich.com/figures/reticulum.jpg)
 
 ## Browser support
 
@@ -231,6 +233,8 @@ A-->>B: ACK
 ```
 
 ## Running WS stress test
+
+**NOTE:** This guide is deprecated. A new custom testing tool will be available soon.
 
 ```bash
 npm install -g thor
