@@ -32,6 +32,15 @@ var Phone = function(autorespond, autodecline, authinfo, realm, port, protocol) 
 		self._ua.uacore.sendResponse(self._ua.uacore.createResponse(200, "OK", self.media.getLocalSDP(), "application/sdp"));
 	};
 
+	this.sendMessage = function (subject, content) {
+		if (self.state !== "ACTIVE") {
+			console.log("Unable to send message. User not on call.");
+			return;
+		}
+
+		self._ua.sendMessage(subject, content);
+	};
+
 	this.autorespond = autorespond;
 	this.autodecline = autodecline;
 	// this.autohangup = true;
@@ -52,6 +61,7 @@ var Phone = function(autorespond, autodecline, authinfo, realm, port, protocol) 
 
 Phone.prototype.setStateFromTransaction = function (type, oldstate, state, method, data) {
 	//console.log(method, "request", type, "transaction state from:", oldstate, ", to:", state)
+	console.log(this._ua.state);
 
 	if (type === "INV_SERVER" && oldstate === "PROCEEDING" && state === "COMPLETED") {
 		this._ua.setState("ACTIVE");
@@ -164,6 +174,16 @@ Phone.prototype.onMessage = function(ua, request) {
 	} else if (this.autodecline) {
 		ua.sendResponse(ua.createResponse(603, "Decline"));
 	}
+
+	var me = webphone._ua.local.auri;
+	var local = this._ua.uacore.local.auri;
+	var remote = this._ua.uacore.remote.auri;
+
+	var from = remote;
+
+	if (remote === me) from = local;
+
+	UI.showMessage(from, request.headers[Reticulum.Parser.Enum.SIP_HDR_SUBJECT].value, request.getBody());
 };
 
 Phone.prototype.onInvite = function(ua, request) {
@@ -452,6 +472,12 @@ UA.prototype.sendAnswer = function() {
 	//if (!EXISTS(this.inviteUA)) return;
 	//this.inviteUA.sendResponse(this.inviteUA.createResponse(200, "OK", this.media.getLocalSDP(), "application/sdp"));
 	this.ua.sendResponse(this.ua.createResponse(200, "OK", this.media.getLocalSDP(), "application/sdp"));
+};
+
+UA.prototype.sendMessage = function (subject, content) {
+	var request = this.createRequest("MESSAGE", subject, content);
+
+	this.uacore.sendRequest(request);
 };
 
 UA.prototype.createRequest = function(method, subject, body) {

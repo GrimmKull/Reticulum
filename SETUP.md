@@ -45,19 +45,21 @@ sudo gem install bundler
 And run
 
 ```
-bundler install
+bundle install
 ```
+
+**Note:** In case of `Cannot allocate memory` error try the bellow method of installing gems. On some VPS providers bundler can't get enough memory to install all gems concurrently.
 
 #### Installing ruby gems by hand
 
 ```
-sudo gem install bundler
-sudo gem install rack:1.6.0
-sudo gem install eventmachine:1.0.4
-sudo gem install faye-websocket:0.8.0
+gem install bundler
+gem install rack:1.6.0
+gem install eventmachine:1.0.4
+gem install faye-websocket:0.8.0
 
-sudo gem install thin:1.6.3
-sudo gem install mysql2:0.4.2
+gem install thin:1.6.3
+gem install mysql2:0.4.2
 ```
 
 ## Get Reticulum source files

@@ -1,5 +1,7 @@
 # Reticulum
 
+[Reticulum](http://www.dictionary.com/browse/reticulum) (lat. dim. m.) - Little net (a network; any reticulated system or structure.)
+
 WebRTC Webphone with SIP Proxy implemented on Raspberry Pi platform.
 
 ![LOGO](https://raw.githubusercontent.com/GrimmKull/Reticulum/master/client/icons/dark%20icon_128.png)
@@ -10,7 +12,7 @@ WebRTC Webphone with SIP Proxy implemented on Raspberry Pi platform.
 
 ![status](https://img.shields.io/badge/reticulum webphone-100%25%20done-brightgreen.svg?style=flat-square&logoWidth=5)
 
-Try it out at [reticulum.outbox.systems](https://reticulum.outbox.systems/?#).
+Try it out at [reticulum.outbox.systems](https://reticulum.outbox.systems) or at [reticulum.link](https://reticulum.link).
 
 ![reticulum](http://photos.lishich.com/figures/reticulum.jpg)
 
@@ -25,6 +27,12 @@ Firefox and Opera support coming soon.
 ## Launching SIP Proxy and Webphone static file hosting
 
 To start the Reticulum server use:
+
+```bash
+./start.sh
+```
+
+To start the Reticulum server as _daemon_ use:
 
 ```bash
 ./run.sh
@@ -42,12 +50,12 @@ For detailed deployment and setup instructions take a look at [SETUP.md](https:/
 
 ## Using the webphone
 
-Navigate to: https://$IP_ADDRESS:7000/index.html?#  
+Navigate to: https://$IP_ADDRESS:7000/index.html  
 where `$IP_ADDRESS` is the address of the machine where Reticulum Proxy is hosted. Click on `Connect` to make a WebSocket connection to Reticulum Proxy and to get the Media from your microphone and webcam. Once the video from webcam shows up in the lower right corner click `Register`. Congratulations you can now make a call to another registered Reticulum user.
 
 ## Admin page
 
-Navigate to: https://$IP_ADDRESS:7000/admin.html?#  
+Navigate to: https://$IP_ADDRESS:7000/admin.html  
 in order to access the Admin page. This page allows you to view SIP message flow, view all transactions and their states on Proxy and create new users.
 
 ## Creating new users
@@ -116,7 +124,7 @@ This will create a file `reticulum_node_phone.min.js` in the `builds/build` fold
 
 ## Using NGINX as reverse proxy
 
-If you checkout the code for Reticulum to `/var/www/` folder on your server you can use the following configuration to use NGINX as the proxy. NGINX will host your static files and proxy all WebSocket requests on https://your.comain.com/ws to Reticulum. To see an example of this configuration in action go to [reticulum.outbox.systems](https://reticulum.outbox.systems/?#).
+If you checkout the code for Reticulum to `/var/www/` folder on your server you can use the following configuration to use NGINX as the proxy. NGINX will host your static files and proxy all WebSocket requests on https://your.comain.com/ws to Reticulum. To see an example of this configuration in action go to [reticulum.outbox.systems](https://reticulum.outbox.systems) or [reticulum.link](https://reticulum.link).
 
 
 ```
@@ -214,6 +222,8 @@ On OSX machine getting the candidates is much faster.
 ## Admin page diagrams example
 
 There might be performance issues when using the Admin after many calls have been made. Rendering diagrams in such a case can be extremely resource consuming.
+
+Please use the admin page only for registering new users and looking at the SIP Call flow diagram for a single call, and not for multiple calls on a busy Reticulum system.
 
 [Diagrams](https://bramp.github.io/js-sequence-diagrams/)
 

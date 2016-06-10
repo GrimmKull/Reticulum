@@ -13,7 +13,7 @@ gulp.task('node', function() {
 			'../client/transport.js',
 			'../client/sip.js',
 			'../client/ua.js',
-			'../client/rtculum.js'
+			'../client/stack.js'
 		])
 		.pipe(concat("reticulum_node_phone.js"))
 		.pipe(gulp.dest('build'))
@@ -32,7 +32,7 @@ gulp.task('default', function() {
 			'../client/transport.js',
 			'../client/sip.js',
 			'../client/ua.js',
-			'../client/rtculum.js'
+			'../client/stack.js'
 		])
 		.pipe(concat("reticulum_phone.js"))
 		.pipe(gulp.dest('build'));
