@@ -3,14 +3,6 @@ require './proxy/utils.rb'
 require 'base64'
 
 module Reticulum
-	# module Utils
-	# 	TOKEN_NUMERIC_16 = 4
-	#
-	# 	def self.token(length, type)
-	# 		return 121314
-	# 	end
-	# end
-
 	module SIP
 		class Header
 			attr_accessor :name
@@ -1309,21 +1301,21 @@ module Reticulum
 
 				case els[0]
 					when "realm"
-			 			auth.realm = val
+						auth.realm = val
 					when "nonce"
-			 			auth.nonce = val
+						auth.nonce = val
 					when "response"
-			 			auth.response = val
+						auth.response = val
 					when "username"
-			 			auth.username = val
+						auth.username = val
 					when "uri"
-			 			auth.uri = val
+						auth.uri = val
 					when "nc"
-			 			auth.nc = val
+						auth.nc = val
 					when "cnonce"
-			 			auth.cnonce = val
+						auth.cnonce = val
 					when "qop"
-			 			auth.qop = val
+						auth.qop = val
 					when "opaque"
 						auth.opaque = val
 				end

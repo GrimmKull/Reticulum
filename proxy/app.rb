@@ -2,12 +2,39 @@ require 'faye/websocket'
 #require 'permessage_deflate'
 require 'rack'
 require 'json'
+require 'yaml'
 
 require 'mysql2'
 
 require './proxy/admin.rb'
 require './proxy/parser.rb'
 require './proxy/utils.rb'
+
+class Conf
+	@@conf = {}
+
+	def initialize
+		unless File.exists? "./proxy/conf.yaml"
+			puts "Missing configuration file."
+			puts "Exiting Reticulum Proxy."
+			exit()
+		end
+
+		@@conf = YAML.load(File.read("./proxy/conf.yaml"))
+	end
+
+	def self.DBhost
+		return @@conf["db"]["host"]
+	end
+
+	def self.DBuser
+		return @@conf["db"]["username"]
+	end
+
+	def self.DBpass
+		return @@conf["db"]["password"]
+	end
+end
 
 class Client
     def initialize uri
@@ -110,7 +137,7 @@ class Transport
 
         #p "<<<"
         ws = Transport.get remote
-        $logger.logMessage(message, false, ws.remote)
+        $logger.logMessage(message, false, ws.remote, Storage.userconns[ws.remote.name + "_" + ws.remote.port.to_s])
         ws.send message
 
         #p ["SENT?", ws.nil?, ws.ws.nil? , message.request? ? message.method : message.statusCode, "to", ws.remote.name]
@@ -322,7 +349,7 @@ class Transaction
 
     def transport message
         p [ "Trans transport", @type, "with state:", @state, message.request? ? "/" : message.statusCode, message.method, @connection.remote.nil? ? "" : @connection.remote.name ]
-        $logger.logMessage(message, false, @connection.remote)
+        $logger.logMessage(message, false, @connection.remote, Storage.userconns[@connection.remote.name + "_" + @connection.remote.port.to_s])
 
         @connection.send(message)
     end
@@ -929,6 +956,7 @@ end
 class Storage
     @@contexts = {}
     @@users = {}
+    @@userconns = {}
     @@bindings = {}
     @@messages = {}
 
@@ -943,7 +971,7 @@ class Storage
     		@@users["bob"] = UserInfo.new "bob", "bpass"
     		@@users["ana"] = UserInfo.new "ana", "apass"
 
-    		@@access = Mysql2::Client.new(:host => "localhost", :username => "root", :password => "test123")
+    		@@access = Mysql2::Client.new(:host => Conf.DBhost, :username => Conf.DBuser, :password => Conf.DBpass)
     		@@insertstmt = @@access.prepare("INSERT INTO reticulum.user (name, email, password) VALUES (?,?,?)")
     		results = @@access.query("SELECT * FROM reticulum.user")
 
@@ -969,6 +997,10 @@ class Storage
 
     def self.users
         @@users
+    end
+
+    def self.userconns
+        @@userconns
     end
 
 	def self.users_array
@@ -1010,6 +1042,37 @@ class Storage
 
         return @@users[username]
     end
+
+    def self.removeBindings remote
+        username = @@userconns[remote.name + "_" + remote.port.to_s]
+        @@bindings.delete(username)
+    end
+
+	def self.deploy
+		puts "Setting up Reticulum DB"
+
+		begin
+			createUser = [
+				"CREATE TABLE reticulum.user (",
+				"    id INT AUTO_INCREMENT,",
+				"    name VARCHAR(100) NOT NULL,",
+				"    email VARCHAR(100) NOT NULL,",
+				"    password VARCHAR(250) NOT NULL,",
+				"    PRIMARY KEY(id)",
+				");"
+			].join("\r\n")
+
+			@@access.query("CREATE DATABASE reticulum;")
+			@@access.query(createUser)
+
+			puts "Created User table for Reticulum database."
+		rescue
+			puts "Failed to setup Proxy DB."
+		end
+
+		puts "Exiting Reticulum Proxy."
+		exit()
+	end
 end
 
 class Proxy
@@ -1104,6 +1167,7 @@ class Proxy
 								send(response)
 							elsif contacts.include? "*" || request.expires == 0
 								Storage.bindings.delete(user)
+                                Storage.userconns.delete(remote.name + "_" + remote.port.to_s)
 							else
                                 # NOTE: Make binding for each user in Contacts and map all received contacts for that user
                                 usernames = [user]
@@ -1133,6 +1197,8 @@ class Proxy
 
     								Storage.bindings[username] = bindings unless bindings.empty?
                                 }
+
+                                Storage.userconns[remote.name + "_" + remote.port.to_s] = user
 
 	                            response = Sip.makeResponse(request, 200, "OK")
 	                            response.to.params["tag"] = Utils.genhex(7)
@@ -1255,12 +1321,16 @@ class Proxy
     end
 end
 
+Conf.new
+
+Storage.new
+
+Storage.deploy if ARGV[0] == "--deploy"
 
 static  = Rack::File.new(File.dirname(__FILE__) + "/../client")
 # options = {:extensions => [PermessageDeflate], :ping => 5}
 options = {:ping => 5}
 
-Storage.new
 proxy = Proxy.new
 Transport.new
 
@@ -1306,7 +1376,7 @@ App = lambda do |env|
 
             message = Reticulum::Parser::Parse event.data
 
-            $logger.logMessage(message, true, remote)
+            $logger.logMessage(message, true, remote, Storage.userconns[remote.name + "_" + remote.port.to_s])
 
             proxy.handle(message, remote)
         elsif ws.protocol == "admin"
@@ -1334,7 +1404,18 @@ App = lambda do |env|
         if ws.protocol == "sip"
             p [:close, event.code, event.reason]
 
+            peer = Socket.unpack_sockaddr_in(env["em.connection"].get_peername)
+            remote = Reticulum::Parser::Host.new
+            remote.name = peer[1]
+            remote.port = peer[0]
+
+            remote.name = env["HTTP_X_REAL_IP"] unless env["HTTP_X_REAL_IP"].nil?
+puts ""
+p ["User disconnect:", remote.name]
+puts ""
             Transport.remove ws
+            Storage.removeBindings remote
+
             ws = nil
         elsif ws.protocol == "admin"
             $logger.remove ws

@@ -415,15 +415,16 @@ console.log(content.data.msg)
 		if (document.getElementById("diagram1").firstChild)
 			document.getElementById("diagram1").firstChild.remove();
 
-		// if (content.data.direction === "in")
-		// 	raw += content.data.from + "->Proxy: " + content.data.method + "\n";
-		// else
-		// 	raw += "Proxy->" + content.data.to + ": " + content.data.method + "\n";
+		// if (content.data.direction === "in") {
+		// 	raw += (content.data.request ? content.data.from : content.data.to) + "->Proxy: " + content.data.method + "\n";
+		// } else {
+		// 	raw += "Proxy->" + (content.data.request ? content.data.to : content.data.from) + ": " + content.data.method + "\n";
+		// }
 
 		if (content.data.direction === "in")
-			raw += content.data.remote + "->Proxy: " + content.data.method + "\n";
+			raw += (content.data.remoteuser === null ? content.data.from : content.data.remoteuser) + "->Proxy: " + content.data.method + "\n";
 		else
-			raw += "Proxy->" + content.data.remote + ": " + content.data.method + "\n";
+			raw += "Proxy->" + (content.data.remoteuser === null ? content.data.from : content.data.remoteuser) + ": " + content.data.method + "\n";
 
 		diagram = Diagram.parse(raw);
 		diagram.drawSVG("diagram1", {theme: 'hand'});

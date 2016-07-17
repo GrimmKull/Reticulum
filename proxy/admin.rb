@@ -23,7 +23,7 @@ class Admin
         @admins.each { |ws| ws.send(data) }
     end
 
-    def logMessage message, bIn, remote
+    def logMessage message, bIn, remote, username
         #p ["GOT", message.request? ? message.method : message.statusCode, "from", remote.name]
 
         #p [message.to_s]
@@ -43,6 +43,8 @@ class Admin
                 :msg => message.to_s,
                 :direction => (bIn ? 'in' : 'out'),
                 :remote => remote.name + "_" + remote.port.to_s,
+                :remoteuser => username,
+                :request => message.request?,
             },
         })
     end

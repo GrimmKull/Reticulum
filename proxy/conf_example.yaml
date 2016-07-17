@@ -1,0 +1,4 @@
+db:
+    host: localhost
+    username: root
+    password: some_password

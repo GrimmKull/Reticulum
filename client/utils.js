@@ -1,3 +1,6 @@
+/**
+ * @namespace
+ */
 var Utils = {
 	/*** Token types ***/
 	TOKEN_ALPHA : 0,
@@ -8,7 +11,13 @@ var Utils = {
 	TOKEN_NUMERIC_10 : 10,
 	//TOKEN_NUMERIC_64 : 5, // not supported base must be between 2 and 36
 
-	/*** Token generator***/
+	/**
+	 * token - Token generator
+	 *
+	 * @param  {number} length length of token
+	 * @param  {number} src    token type
+	 * @return {type}        calculated token
+	 */
 	token: function(length, src) {
 		src = typeof src !== 'undefined' ? src : 1;
 		var text = "";

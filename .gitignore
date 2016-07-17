@@ -11,6 +11,8 @@ Fixed.md
 .imdone
 Gemfile.lock
 
+proxy/conf.yaml
+
 client/bob.html
 client/sipml5.html
 client/sipml5call.html

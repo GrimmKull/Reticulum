@@ -43,7 +43,7 @@ var Phone = function(autorespond, autodecline, authinfo, realm, port, protocol) 
 
 	this.autorespond = autorespond;
 	this.autodecline = autodecline;
-	// this.autohangup = true;
+	this.autohangup = false;//true;
 
 	// Stack
 	//var stack = this.stack;
