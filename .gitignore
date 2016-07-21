@@ -4,6 +4,8 @@ builds/build
 */reticulum_phone.js
 */reticulum_node_phone.min.js
 
+*.bak.rb
+
 Tasks.md
 Masters.md
 Fixed.md
@@ -22,5 +24,6 @@ client/node.html
 tmp/
 logs/
 debug/
+docs/
 figures/
 appliance/
