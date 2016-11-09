@@ -1427,11 +1427,12 @@ UACore.prototype.sendRequest = function(request) {
 		}
 	}
 
-
+    /*
 	if (EXISTS(request.routes) && request.routes.length > 0)
 		this.remoteTarget = request.routes[0].uri;
 	else
 		this.remoteTarget = request.uri;
+    */
 
 	//console.log("SEND req FROM UACORE", EXISTS(this.request), request.uri, request.remoteURI);
 
@@ -1813,7 +1814,7 @@ Dialog.prototype.createRequest = function (method, content, contentType) {
 
 	// NOTE: needed for strict route support ???
 	if (this.routeSet.length > 0 && !EXISTS(this.routeSet[0].uri.params.lr)) {
-	 	request.uri = this.routeSet[0].uri;
+	// 	request.uri = this.routeSet[0].uri;
 	}
 
 	// Add Contact to In-Dialog request
